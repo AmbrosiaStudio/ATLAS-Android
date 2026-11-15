@@ -106,9 +106,9 @@ jobs:
           ANDROID_KEY_PASSWORD = $KEY_PASSWORD
 
           Windows PowerShell (run in the folder containing my-upload-key.jks):
-          $bytes = [IO.File]::ReadAllBytes("my-upload-key.jks")
-          $base64 = [Convert]::ToBase64String($bytes)
-          Set-Clipboard $base64
+          \$bytes = [IO.File]::ReadAllBytes("my-upload-key.jks")
+          \$base64 = [Convert]::ToBase64String(\$bytes)
+          Set-Clipboard \$base64
 
           Then add the four values in:
           GitHub repository > Settings > Secrets and variables > Actions > New repository secret
@@ -182,7 +182,7 @@ jobs:
       - name: Verify signing and output files
         shell: bash
         run: |
-          apksigner verify --verbose deliverables/*-debug.apk
-          apksigner verify --verbose deliverables/*-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose deliverables/*-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose deliverables/*-release.apk
           test -s deliverables/*.aab
           cat deliverables/SHA256SUMS.txt
