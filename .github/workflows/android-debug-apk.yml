@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           STORE_PASSWORD="$(openssl rand -hex 24)"
-          KEY_PASSWORD="$(openssl rand -hex 24)"
+          KEY_PASSWORD="$STORE_PASSWORD"
           KEY_ALIAS="pagenest-upload"
           keytool -genkeypair -v \
             -keystore my-upload-key.jks \
@@ -116,6 +116,15 @@ jobs:
           After confirming all four secrets exist, delete this bootstrap artifact from
           Actions > this run > Artifacts. Store a separate encrypted offline backup.
           EOF
+
+      - name: Upload first-use signing key (PRIVATE)
+        if: env.ANDROID_KEYSTORE_BASE64 == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: PageNest-signing-key-BOOTSTRAP-PRIVATE
+          path: signing-bootstrap/*
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Build all Android release variants
         run: |
@@ -177,15 +186,6 @@ jobs:
           path: deliverables/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 90
-
-      - name: Upload first-use signing key (PRIVATE)
-        if: env.ANDROID_KEYSTORE_BASE64 == ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: PageNest-signing-key-BOOTSTRAP-PRIVATE
-          path: signing-bootstrap/*
-          if-no-files-found: error
-          retention-days: 1
 
       - name: Verify signing and output files
         shell: bash
