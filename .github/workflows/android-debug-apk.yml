@@ -170,6 +170,14 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: PageNest-build-checksums
+          path: deliverables/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Upload first-use signing key (PRIVATE)
         if: env.ANDROID_KEYSTORE_BASE64 == ''
         uses: actions/upload-artifact@v4
