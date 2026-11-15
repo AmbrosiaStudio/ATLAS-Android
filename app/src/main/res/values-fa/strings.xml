@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">پیج‌نست</string>
+    <string name="library_title">کتابخانه</string>
+    <string name="library_subtitle">کتابخانه آرام و شیشه‌ای شما</string>
+    <string name="import_book">افزودن کتاب</string>
+    <string name="import_epub_or_pdf">افزودن EPUB یا PDF</string>
+    <string name="empty_library_title">قفسه مطالعه شما آماده است</string>
+    <string name="empty_library_subtitle">فایل‌های EPUB یا PDF را از دستگاه وارد کنید. کتاب‌ها در حافظه امن برنامه ذخیره می‌شوند.</string>
+    <string name="search_library_hint">جستجوی عنوان یا نویسنده</string>
+    <string name="continue_reading">ادامه مطالعه</string>
+    <string name="recent_books">اخیراً خوانده‌شده</string>
+    <string name="all_books">همه کتاب‌ها</string>
+    <string name="back_to_library">بازگشت به کتابخانه</string>
+    <string name="close_book">بستن کتاب</string>
+    <string name="bookmark_page">نشانک</string>
+    <string name="search_in_book">جستجو در کتاب</string>
+    <string name="read_mode">مطالعه</string>
+    <string name="listen_mode">شنیدن</string>
+    <string name="theme_and_brightness">پوسته و روشنایی</string>
+    <string name="typography_settings">تایپوگرافی</string>
+    <string name="contents_and_notes">فهرست و یادداشت‌ها</string>
+    <string name="table_of_contents">فهرست</string>
+    <string name="bookmarks_tab">نشانک‌ها</string>
+    <string name="highlights_tab">هایلایت‌ها</string>
+    <string name="search_tab">جستجو</string>
+</resources>

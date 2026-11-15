@@ -1,0 +1,261 @@
+package com.example
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.example.data.local.BookEntity
+import com.example.data.local.BookmarkEntity
+import com.example.data.local.HighlightEntity
+import com.example.data.local.PageNestDatabase
+import com.example.data.repository.SampleLibrarySeeder
+import com.example.engine.epub.EpubParser
+import java.io.File
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
+class ExampleRobolectricTest {
+
+  @Test
+  fun `app name matches PageNest`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val appName = context.getString(R.string.app_name)
+    assertEquals("PageNest", appName)
+  }
+
+  @Test
+  fun `epub seeder and parser extract metadata toc chapters and search results`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val parser = EpubParser(context)
+    val epubFile = SampleLibrarySeeder.createSampleEpub(context)
+    try {
+      assertTrue(epubFile.exists() && epubFile.length() > 0)
+
+      val metaResult = parser.extractMetadataAndCover(epubFile, "test-epub-1", "Fallback")
+      assertTrue(metaResult.isSuccess)
+      val (meta, coverPath) = metaResult.getOrThrow()
+      assertEquals("Letters on Slow Reading", meta.title)
+      assertEquals("Marcus Aurelius & Seneca", meta.author)
+      assertEquals(4, meta.totalChapters)
+      assertNotNull(coverPath)
+      assertTrue(File(coverPath!!).exists())
+
+      val loaded = parser.loadBook(epubFile, "test-epub-1", "Fallback").getOrThrow()
+      assertEquals(4, loaded.chapters.size)
+      assertEquals(4, loaded.toc.size)
+      assertEquals("I. On Discursiveness in Reading", loaded.toc.first().title)
+
+      val matches = parser.searchInBook(loaded.chapters, "solitude")
+      assertTrue(matches.isNotEmpty())
+      assertEquals(1, matches.first().chapterOrPageIndex)
+    } finally {
+      epubFile.delete()
+    }
+  }
+
+  @Test
+  fun `room database persists books bookmarks highlights and cascades deletes`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      val book =
+        BookEntity(
+          id = "b1",
+          title = "Test Book",
+          author = "Author",
+          format = "EPUB",
+          filePath = "/tmp/b1.epub",
+          coverPath = null,
+          fileSizeBytes = 1024L,
+          totalUnits = 4,
+        )
+      dao.upsertBook(book)
+      dao.updateReadingProgress("b1", 2, 0.45f, 61.2f, 123456L)
+
+      val stored = dao.getBookById("b1")
+      assertNotNull(stored)
+      assertEquals(2, stored!!.currentChapterOrPage)
+      assertEquals(0.45f, stored.currentScrollFraction, 0.001f)
+
+      dao.insertBookmark(
+        BookmarkEntity(
+          bookId = "b1",
+          title = "Chapter 3",
+          chapterOrPageIndex = 2,
+          scrollFraction = 0.45f,
+          snippet = "Saved spot",
+        )
+      )
+      dao.insertHighlight(
+        HighlightEntity(
+          bookId = "b1",
+          chapterOrPageIndex = 2,
+          selectedText = "quiet room",
+          note = "Favorite passage",
+          colorHex = "#FDE68A",
+        )
+      )
+
+      assertEquals(1, dao.observeBookmarks("b1").first().size)
+      val savedHighlights = dao.observeHighlights("b1").first()
+      assertEquals(1, savedHighlights.size)
+      assertEquals("Favorite passage", savedHighlights.first().note)
+
+      dao.deleteBookById("b1")
+      assertEquals(0, dao.observeBookmarks("b1").first().size)
+      assertEquals(0, dao.observeHighlights("b1").first().size)
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `persian sample epub parses chapters toc and supports persian search`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val parser = EpubParser(context)
+    val epubFile = SampleLibrarySeeder.createSamplePersianEpub(context)
+    try {
+      assertTrue(epubFile.exists() && epubFile.length() > 0)
+      val (meta, coverPath) = parser.extractMetadataAndCover(epubFile, "test-fa-1", "Fallback").getOrThrow()
+      assertEquals("در ستایش خواندن آرام", meta.title)
+      assertEquals(2, meta.totalChapters)
+      assertNotNull(coverPath)
+
+      val loaded = parser.loadBook(epubFile, "test-fa-1", "Fallback").getOrThrow()
+      assertEquals(2, loaded.chapters.size)
+      assertEquals(2, loaded.toc.size)
+      val matches = parser.searchInBook(loaded.chapters, "سعدی")
+      assertTrue(matches.isNotEmpty())
+    } finally {
+      epubFile.delete()
+    }
+  }
+
+  @Test
+  fun `daily reading goal tracks time resets on new day and persists paged vs scroll layout`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val store = com.example.data.local.ReaderPreferencesDataStore(context)
+
+    store.updateSettings { it.copy(dailyGoalMinutes = 35) }
+    store.addReadingSeconds(deltaSeconds = 120, todayDateKey = "2026-11-14")
+    store.addReadingSeconds(deltaSeconds = 60, todayDateKey = "2026-11-14")
+
+    val sameDay = store.settingsFlow.first()
+    assertEquals(35, sameDay.dailyGoalMinutes)
+    assertEquals(180, sameDay.todayReadingSeconds)
+    assertEquals("2026-11-14", sameDay.lastReadingDateKey)
+    assertTrue(sameDay.totalReadingSecondsAllTime >= 180L)
+
+    // Next day resets daily progress but preserves cumulative total
+    val totalBeforeRollover = sameDay.totalReadingSecondsAllTime
+    store.addReadingSeconds(deltaSeconds = 45, todayDateKey = "2026-11-15")
+    val nextDay = store.settingsFlow.first()
+    assertEquals(45, nextDay.todayReadingSeconds)
+    assertEquals("2026-11-15", nextDay.lastReadingDateKey)
+    assertEquals(totalBeforeRollover + 45L, nextDay.totalReadingSecondsAllTime)
+
+    // Layout mode toggles cleanly between Book Pages and Vertical Scroll
+    store.updateSettings { it.copy(readingLayoutMode = com.example.model.ReadingLayoutMode.SCROLL) }
+    assertEquals(com.example.model.ReadingLayoutMode.SCROLL, store.settingsFlow.first().readingLayoutMode)
+    store.updateSettings { it.copy(readingLayoutMode = com.example.model.ReadingLayoutMode.PAGED) }
+    assertEquals(com.example.model.ReadingLayoutMode.PAGED, store.settingsFlow.first().readingLayoutMode)
+
+    // Reading comfort settings, new themes, and paper texture persist cleanly
+    store.updateSettings {
+      it.copy(
+        themeMode = com.example.model.ReadingThemeMode.NIGHT_BW,
+        fontSizeSp = 22,
+        lineHeightMultiplier = 1.9f,
+        horizontalMarginDp = 36,
+        verticalMarginDp = 32,
+        paragraphSpacingEm = 1.3f,
+        letterSpacingEm = 0.04f,
+        fontWeightValue = 500,
+        eyeComfortWarmth = 0.45f,
+        showPageBorder = true,
+        paperTextureEnabled = true,
+      )
+    }
+    val comfort = store.settingsFlow.first()
+    assertEquals(com.example.model.ReadingThemeMode.NIGHT_BW, comfort.themeMode)
+    assertEquals(22, comfort.fontSizeSp)
+    assertEquals(1.9f, comfort.lineHeightMultiplier, 0.001f)
+    assertEquals(36, comfort.horizontalMarginDp)
+    assertEquals(32, comfort.verticalMarginDp)
+    assertEquals(1.3f, comfort.paragraphSpacingEm, 0.001f)
+    assertEquals(0.04f, comfort.letterSpacingEm, 0.001f)
+    assertEquals(500, comfort.fontWeightValue)
+    assertEquals(0.45f, comfort.eyeComfortWarmth, 0.001f)
+    assertTrue(comfort.showPageBorder)
+    assertTrue(comfort.paperTextureEnabled)
+
+    store.updateSettings {
+      it.copy(
+        themeMode = com.example.model.ReadingThemeMode.SAGE_MIST,
+        batterySaverModeEnabled = true,
+        volumeKeyPageTurnEnabled = true,
+      )
+    }
+    val updated = store.settingsFlow.first()
+    assertEquals(com.example.model.ReadingThemeMode.SAGE_MIST, updated.themeMode)
+    assertTrue(updated.batterySaverModeEnabled)
+    assertTrue(updated.volumeKeyPageTurnEnabled)
+  }
+
+  @Test
+  fun `native epub html block parser extracts headings quotes anchors rtl and highlights`() {
+    val html =
+      """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <html xmlns="http://www.w3.org/1999/xhtml">
+      <body>
+        <h1 id="ch1">I. On Slow Reading</h1>
+        <p>First <strong>quiet</strong> sentence &mdash; with <em>italic</em> tone.</p>
+        <blockquote id="quote-a">“Constant attention is key.”</blockquote>
+        <ul><li>One &amp; Two</li></ul>
+      </body>
+      </html>
+      """.trimIndent()
+
+    val parsed = com.example.engine.epub.EpubHtmlBlockParser.parse(html, "/tmp/ch1.xhtml")
+    assertEquals(4, parsed.blocks.size)
+    val heading = parsed.blocks[0] as com.example.engine.epub.EpubContentBlock.Heading
+    assertEquals(1, heading.level)
+    assertTrue("ch1" in heading.anchors)
+    val para = parsed.blocks[1] as com.example.engine.epub.EpubContentBlock.Paragraph
+    assertTrue(para.text.text.contains("quiet sentence — with italic"))
+    val decorated =
+      com.example.engine.epub.EpubHtmlBlockParser.decorateAnnotatedText(
+        base = para.text,
+        highlights =
+          listOf(
+            HighlightEntity(
+              bookId = "b",
+              chapterOrPageIndex = 0,
+              selectedText = "quiet sentence",
+              colorHex = "#FDE68A",
+            )
+          ),
+        activeSelectionRange = 0..5,
+        selectionHighlightColor = androidx.compose.ui.graphics.Color.Green,
+      )
+    assertTrue(decorated.spanStyles.size >= 3)
+
+    val faHtml =
+      """
+      <html dir="rtl" lang="fa"><body><h1>بخش اول</h1><p>خواندنِ عمیق&zwnj;تر</p></body></html>
+      """.trimIndent()
+    val faParsed = com.example.engine.epub.EpubHtmlBlockParser.parse(faHtml, "/tmp/fa.xhtml")
+    assertTrue(faParsed.isRtlDocument)
+    assertEquals(2, faParsed.blocks.size)
+  }
+}

@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">PageNest</string>
+    <string name="library_title">Library</string>
+    <string name="library_subtitle">Your private reading sanctuary</string>
+    <string name="import_book">Import Book</string>
+    <string name="import_epub_or_pdf">Import EPUB or PDF</string>
+    <string name="empty_library_title">Your reading shelf awaits</string>
+    <string name="empty_library_subtitle">Import EPUB or PDF files from your device. Books are copied into PageNest private storage so they stay available offline.</string>
+    <string name="search_library_hint">Search title or author</string>
+    <string name="continue_reading">Continue Reading</string>
+    <string name="recent_books">Recently Opened</string>
+    <string name="all_books">All Books</string>
+    <string name="back_to_library">Back to library</string>
+    <string name="close_book">Close book</string>
+    <string name="bookmark_page">Bookmark</string>
+    <string name="search_in_book">Search in book</string>
+    <string name="read_mode">Read</string>
+    <string name="listen_mode">Listen</string>
+    <string name="theme_and_brightness">Theme &amp; Brightness</string>
+    <string name="typography_settings">Typography</string>
+    <string name="contents_and_notes">Contents &amp; Notes</string>
+    <string name="table_of_contents">Contents</string>
+    <string name="bookmarks_tab">Bookmarks</string>
+    <string name="highlights_tab">Highlights</string>
+    <string name="search_tab">Search</string>
+</resources>

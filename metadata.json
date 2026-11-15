@@ -1,0 +1,6 @@
+{
+  "name": "PageNest",
+  "description": "Minimalist native Android EPUB and PDF reader with customizable serif & Persian typography, six reading themes including Black & White Night mode, paper texture, bookmarks, highlights, and local-first library.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
