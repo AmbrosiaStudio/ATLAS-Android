@@ -108,6 +108,8 @@ import com.example.model.LibrarySortOrder
 import com.example.model.LibraryStatusFilter
 import com.example.model.ReadingStatus
 import com.example.ui.i18n.LocalAppStrings
+import com.example.ui.monetization.PageNestProDialog
+import com.example.ui.monetization.TipJarDialog
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.NotoNaskhFontFamily
 import java.io.File
@@ -130,6 +132,8 @@ fun LibraryScreen(
   var showMoreMenu by remember { mutableStateOf(false) }
   var showGoalDialog by remember { mutableStateOf(false) }
   var showCreateShelfDialog by remember { mutableStateOf(false) }
+  var showTipJarDialog by remember { mutableStateOf(false) }
+  var showProDialog by remember { mutableStateOf(false) }
   var shelfPendingDelete by remember { mutableStateOf<ShelfEntity?>(null) }
   var bookPendingEdit by remember { mutableStateOf<BookEntity?>(null) }
   var bookPendingDelete by remember { mutableStateOf<BookEntity?>(null) }
@@ -213,17 +217,42 @@ fun LibraryScreen(
                 Spacer(modifier = Modifier.width(10.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                  Text(
-                    text = strings.appName,
-                    fontFamily = if (isFa) NotoNaskhFontFamily else LiterataFontFamily,
-                    fontSize = if (isFa) 22.sp else 25.sp,
-                    lineHeight = if (isFa) 28.sp else 30.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    letterSpacing = if (isFa) 0.sp else (-0.5).sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                  ) {
+                    Text(
+                      text = strings.appName,
+                      fontFamily = if (isFa) NotoNaskhFontFamily else LiterataFontFamily,
+                      fontSize = if (isFa) 22.sp else 25.sp,
+                      lineHeight = if (isFa) 28.sp else 30.sp,
+                      fontWeight = FontWeight.SemiBold,
+                      color = MaterialTheme.colorScheme.onBackground,
+                      letterSpacing = if (isFa) 0.sp else (-0.5).sp,
+                      maxLines = 1,
+                      overflow = TextOverflow.Ellipsis,
+                    )
+                    if (uiState.settings.isProUnlocked) {
+                      Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                        modifier =
+                          Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { showProDialog = true }
+                            .testTag("library_pro_badge"),
+                      ) {
+                        Text(
+                          text = strings.proBadge,
+                          style = MaterialTheme.typography.labelSmall,
+                          fontWeight = FontWeight.Bold,
+                          color = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                      }
+                    }
+                  }
                   Text(
                     text =
                       if (uiState.totalLibraryCount == 0) strings.librarySubtitle
@@ -319,6 +348,20 @@ fun LibraryScreen(
                       onClick = {
                         showMoreMenu = false
                         viewModel.loadSampleClassics()
+                      },
+                    )
+                    DropdownMenuItem(
+                      text = { Text(strings.tipJarMenu, color = MaterialTheme.colorScheme.onSurface) },
+                      onClick = {
+                        showMoreMenu = false
+                        showTipJarDialog = true
+                      },
+                    )
+                    DropdownMenuItem(
+                      text = { Text(strings.proMenu, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) },
+                      onClick = {
+                        showMoreMenu = false
+                        showProDialog = true
                       },
                     )
                     DropdownMenuItem(
@@ -940,6 +983,47 @@ fun LibraryScreen(
           Text(strings.cancel, color = MaterialTheme.colorScheme.primary)
         }
       },
+    )
+  }
+
+  val autoRecommendTip =
+    uiState.shouldSuggestTipJar &&
+      !showTipJarDialog &&
+      !showProDialog &&
+      !showGoalDialog &&
+      !showCreateShelfDialog &&
+      bookPendingEdit == null &&
+      bookPendingDelete == null
+
+  if (showTipJarDialog || autoRecommendTip) {
+    val fromRecommend = autoRecommendTip && !showTipJarDialog
+    TipJarDialog(
+      totalReadingMinutes = uiState.totalReadingMinutesAllTime,
+      isFromRecommendation = fromRecommend,
+      isProUnlocked = uiState.settings.isProUnlocked,
+      hasSupportedAlready = uiState.settings.hasSupportedViaTipJar,
+      isFa = isFa,
+      onMarkSupported = viewModel::markSupportedViaTipJar,
+      onOpenProDialog = {
+        if (fromRecommend) viewModel.dismissTipJarPrompt()
+        showTipJarDialog = false
+        showProDialog = true
+      },
+      onDismiss = {
+        if (fromRecommend) {
+          viewModel.dismissTipJarPrompt()
+        }
+        showTipJarDialog = false
+      },
+    )
+  }
+
+  if (showProDialog) {
+    PageNestProDialog(
+      isProUnlocked = uiState.settings.isProUnlocked,
+      isFa = isFa,
+      onRedeemSupporterCode = viewModel::redeemSupporterCode,
+      onDismiss = { showProDialog = false },
     )
   }
 }

@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.config.MonetizationConfig
 import com.example.model.AppLanguage
 import com.example.model.LibraryLayoutMode
 import com.example.model.LibrarySortOrder
@@ -18,6 +19,7 @@ import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
 import com.example.model.TextAlignOption
+import com.example.model.TipPromptMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -61,6 +63,13 @@ class ReaderPreferencesDataStore(private val context: Context) {
     val STREAK_REMINDER_ENABLED = booleanPreferencesKey("streak_reminder_enabled")
     val STREAK_REMINDER_HOUR = intPreferencesKey("streak_reminder_hour")
     val STREAK_REMINDER_MINUTE = intPreferencesKey("streak_reminder_minute")
+    val IS_PRO_UNLOCKED = booleanPreferencesKey("is_pro_unlocked")
+    val PRO_SUPPORTER_NOTE = stringPreferencesKey("pro_supporter_note")
+    val TIP_PROMPT_MODE = stringPreferencesKey("tip_prompt_mode")
+    val TIP_FIXED_MINUTES = intPreferencesKey("tip_fixed_minutes")
+    val NEXT_TIP_PROMPT_AT_READING_SEC = longPreferencesKey("next_tip_prompt_at_reading_sec")
+    val LAST_TIP_PROMPT_SHOWN_AT = longPreferencesKey("last_tip_prompt_shown_at")
+    val HAS_SUPPORTED_VIA_TIP_JAR = booleanPreferencesKey("has_supported_via_tip_jar")
   }
 
   private fun Preferences.toSettings(): ReaderSettings =
@@ -114,6 +123,17 @@ class ReaderPreferencesDataStore(private val context: Context) {
       streakReminderEnabled = this[Keys.STREAK_REMINDER_ENABLED] ?: false,
       streakReminderHour = (this[Keys.STREAK_REMINDER_HOUR] ?: 20).coerceIn(0, 23),
       streakReminderMinute = (this[Keys.STREAK_REMINDER_MINUTE] ?: 0).coerceIn(0, 59),
+      isProUnlocked = this[Keys.IS_PRO_UNLOCKED] ?: false,
+      proSupporterNote = this[Keys.PRO_SUPPORTER_NOTE].orEmpty(),
+      tipPromptMode =
+        this[Keys.TIP_PROMPT_MODE]?.let { runCatching { TipPromptMode.valueOf(it) }.getOrNull() }
+          ?: TipPromptMode.RANDOM_USAGE,
+      tipFixedMinutes = (this[Keys.TIP_FIXED_MINUTES] ?: MonetizationConfig.DEFAULT_FIXED_INTERVAL_MINUTES).coerceIn(10, 240),
+      nextTipPromptAtReadingSeconds =
+        this[Keys.NEXT_TIP_PROMPT_AT_READING_SEC]
+          ?: (MonetizationConfig.FIRST_PROMPT_AFTER_READING_MINUTES * 60L),
+      lastTipPromptShownAtMillis = this[Keys.LAST_TIP_PROMPT_SHOWN_AT] ?: 0L,
+      hasSupportedViaTipJar = this[Keys.HAS_SUPPORTED_VIA_TIP_JAR] ?: false,
     )
 
   val settingsFlow: Flow<ReaderSettings> = context.readerDataStore.data.map { it.toSettings() }
@@ -161,6 +181,13 @@ class ReaderPreferencesDataStore(private val context: Context) {
       prefs[Keys.STREAK_REMINDER_ENABLED] = next.streakReminderEnabled
       prefs[Keys.STREAK_REMINDER_HOUR] = next.streakReminderHour
       prefs[Keys.STREAK_REMINDER_MINUTE] = next.streakReminderMinute
+      prefs[Keys.IS_PRO_UNLOCKED] = next.isProUnlocked
+      prefs[Keys.PRO_SUPPORTER_NOTE] = next.proSupporterNote
+      prefs[Keys.TIP_PROMPT_MODE] = next.tipPromptMode.name
+      prefs[Keys.TIP_FIXED_MINUTES] = next.tipFixedMinutes
+      prefs[Keys.NEXT_TIP_PROMPT_AT_READING_SEC] = next.nextTipPromptAtReadingSeconds
+      prefs[Keys.LAST_TIP_PROMPT_SHOWN_AT] = next.lastTipPromptShownAtMillis
+      prefs[Keys.HAS_SUPPORTED_VIA_TIP_JAR] = next.hasSupportedViaTipJar
     }
   }
 

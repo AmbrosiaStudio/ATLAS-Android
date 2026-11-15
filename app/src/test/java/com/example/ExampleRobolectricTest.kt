@@ -470,4 +470,38 @@ class ExampleRobolectricTest {
     val delayMs = com.example.notifications.StreakReminderScheduler.computeDelayMillisUntil(20, 30)
     assertTrue(delayMs in 60_000L..86_460_000L)
   }
+
+  @Test
+  fun `monetization config computes random and fixed tip delays and persists pro entitlement`() = runTest {
+    val randomLow = com.example.config.MonetizationConfig.computeNextPromptDelaySeconds(true, 30, 0.0)
+    val randomHigh = com.example.config.MonetizationConfig.computeNextPromptDelaySeconds(true, 30, 0.99)
+    assertTrue(randomLow >= com.example.config.MonetizationConfig.RANDOM_INTERVAL_MIN_MINUTES * 60L)
+    assertTrue(randomHigh <= com.example.config.MonetizationConfig.RANDOM_INTERVAL_MAX_MINUTES * 60L)
+
+    val fixed = com.example.config.MonetizationConfig.computeNextPromptDelaySeconds(false, 45)
+    assertEquals(45 * 60L, fixed)
+
+    assertTrue(com.example.config.MonetizationConfig.isValidSupporterCode("pagenest-pro"))
+    assertTrue(!com.example.config.MonetizationConfig.isValidSupporterCode("INVALID-KEY"))
+    assertTrue(com.example.config.MonetizationConfig.activeIranTipLinks().isNotEmpty())
+    assertTrue(com.example.config.MonetizationConfig.activeGlobalTipLinks().isNotEmpty())
+
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val store = com.example.data.local.ReaderPreferencesDataStore(context)
+    store.updateSettings {
+      it.copy(
+        isProUnlocked = true,
+        proSupporterNote = "PAGENEST-PRO",
+        tipPromptMode = com.example.model.TipPromptMode.FIXED_USAGE,
+        tipFixedMinutes = 40,
+        hasSupportedViaTipJar = true,
+      )
+    }
+    val loaded = store.settingsFlow.first()
+    assertTrue(loaded.isProUnlocked)
+    assertEquals("PAGENEST-PRO", loaded.proSupporterNote)
+    assertEquals(com.example.model.TipPromptMode.FIXED_USAGE, loaded.tipPromptMode)
+    assertEquals(40, loaded.tipFixedMinutes)
+    assertTrue(loaded.hasSupportedViaTipJar)
+  }
 }

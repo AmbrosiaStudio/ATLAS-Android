@@ -140,6 +140,15 @@ enum class ComfortPreset(
   NIGHT_EASE("Night Ease", "آرامش شب"),
 }
 
+enum class TipPromptMode(
+  val label: String,
+  val faLabel: String,
+) {
+  RANDOM_USAGE("Smart Random", "زمان‌بندی تصادفی"),
+  FIXED_USAGE("Every Set Time", "هر بازه مشخص"),
+  OFF("Off", "خاموش"),
+}
+
 data class ReaderSettings(
   val appLanguage: AppLanguage = AppLanguage.ENGLISH,
   val themeMode: ReadingThemeMode = ReadingThemeMode.PAPER,
@@ -176,6 +185,13 @@ data class ReaderSettings(
   val streakReminderEnabled: Boolean = false,
   val streakReminderHour: Int = 20,
   val streakReminderMinute: Int = 0,
+  val isProUnlocked: Boolean = false,
+  val proSupporterNote: String = "",
+  val tipPromptMode: TipPromptMode = TipPromptMode.RANDOM_USAGE,
+  val tipFixedMinutes: Int = 30,
+  val nextTipPromptAtReadingSeconds: Long = 15L * 60L,
+  val lastTipPromptShownAtMillis: Long = 0L,
+  val hasSupportedViaTipJar: Boolean = false,
 )
 
 data class EpubChapter(

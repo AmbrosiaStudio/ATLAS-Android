@@ -4,15 +4,18 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.config.MonetizationConfig
 import com.example.data.local.BookEntity
 import com.example.data.local.ShelfEntity
 import com.example.data.repository.LibraryRepository
 import com.example.data.repository.ReaderRepository
+import com.example.model.AppLanguage
 import com.example.model.LibraryLayoutMode
 import com.example.model.LibrarySortOrder
 import com.example.model.LibraryStatusFilter
 import com.example.model.ReaderSettings
 import com.example.model.ReadingStatus
+import com.example.model.TipPromptMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +42,7 @@ data class LibraryUiState(
   val todayReadingSeconds: Int = 0,
   val totalReadingMinutesAllTime: Int = 0,
   val isImporting: Boolean = false,
+  val shouldSuggestTipJar: Boolean = false,
   val errorMessage: String? = null,
   val infoMessage: String? = null,
 ) {
@@ -148,6 +152,16 @@ class LibraryViewModel(
       val continueBook = recent.firstOrNull() ?: allBooks.firstOrNull()
       val isToday = settings.lastReadingDateKey == readerRepository.currentDateKey()
       val todaySec = if (isToday) settings.todayReadingSeconds else 0
+      val cooldownMs = MonetizationConfig.MIN_COOLDOWN_HOURS_BETWEEN_PROMPTS * 3_600_000L
+      val cooldownMet =
+        settings.lastTipPromptShownAtMillis == 0L ||
+          (System.currentTimeMillis() - settings.lastTipPromptShownAtMillis) >= cooldownMs
+      val suggestTipJar =
+        !settings.isProUnlocked &&
+          !settings.hasSupportedViaTipJar &&
+          settings.tipPromptMode != TipPromptMode.OFF &&
+          cooldownMet &&
+          settings.totalReadingSecondsAllTime >= settings.nextTipPromptAtReadingSeconds
 
       LibraryUiState(
         books = sorted,
@@ -167,6 +181,7 @@ class LibraryViewModel(
         todayReadingSeconds = todaySec,
         totalReadingMinutesAllTime = (settings.totalReadingSecondsAllTime / 60L).toInt(),
         isImporting = status.importing,
+        shouldSuggestTipJar = suggestTipJar,
         errorMessage = status.error,
         infoMessage = status.info,
       )
@@ -326,6 +341,56 @@ class LibraryViewModel(
   fun clearMessages() {
     errorMessage.update { null }
     infoMessage.update { null }
+  }
+
+  fun dismissTipJarPrompt() {
+    viewModelScope.launch {
+      val nowMillis = System.currentTimeMillis()
+      readerRepository.updateSettings { current ->
+        val nextDelay =
+          MonetizationConfig.computeNextPromptDelaySeconds(
+            isRandomMode = current.tipPromptMode == TipPromptMode.RANDOM_USAGE,
+            fixedMinutes = current.tipFixedMinutes,
+          )
+        current.copy(
+          nextTipPromptAtReadingSeconds = current.totalReadingSecondsAllTime + nextDelay,
+          lastTipPromptShownAtMillis = nowMillis,
+        )
+      }
+    }
+  }
+
+  fun markSupportedViaTipJar() {
+    viewModelScope.launch {
+      val isFa = uiState.value.settings.appLanguage == AppLanguage.PERSIAN
+      readerRepository.updateSettings {
+        it.copy(
+          hasSupportedViaTipJar = true,
+          lastTipPromptShownAtMillis = System.currentTimeMillis(),
+        )
+      }
+      infoMessage.value =
+        if (isFa) "از حمایت ارزشمند شما سپاسگزاریم!"
+        else "Thank you so much for supporting PageNest!"
+    }
+  }
+
+  fun redeemSupporterCode(code: String): Boolean {
+    if (!MonetizationConfig.isValidSupporterCode(code)) return false
+    viewModelScope.launch {
+      val isFa = uiState.value.settings.appLanguage == AppLanguage.PERSIAN
+      readerRepository.updateSettings {
+        it.copy(
+          isProUnlocked = true,
+          hasSupportedViaTipJar = true,
+          proSupporterNote = code.trim().uppercase(),
+        )
+      }
+      infoMessage.value =
+        if (isFa) "نسخه پیج‌نست Pro فعال شد — سپاس از حمایت شما!"
+        else "PageNest Pro activated — thank you for your support!"
+    }
+    return true
   }
 
   class Factory(

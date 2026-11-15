@@ -13,8 +13,10 @@ import com.example.model.AppLanguage
 import com.example.model.CustomFontEntry
 import com.example.model.ReaderFontOption
 import com.example.model.ReaderSettings
+import com.example.config.MonetizationConfig
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.model.TipPromptMode
 import com.example.notifications.StreakReminderScheduler
 import com.example.notifications.StreakReminderWorker
 import java.io.File
@@ -201,6 +203,71 @@ class SettingsViewModel(
       } else {
         "Sending test streak reminder notification…"
       }
+  }
+
+  fun setTipPromptMode(mode: TipPromptMode) {
+    viewModelScope.launch {
+      readerRepository.updateSettings { current ->
+        val nextThreshold =
+          if (mode == TipPromptMode.OFF) current.nextTipPromptAtReadingSeconds
+          else {
+            current.totalReadingSecondsAllTime +
+              MonetizationConfig.computeNextPromptDelaySeconds(
+                isRandomMode = mode == TipPromptMode.RANDOM_USAGE,
+                fixedMinutes = current.tipFixedMinutes,
+              )
+          }
+        current.copy(
+          tipPromptMode = mode,
+          nextTipPromptAtReadingSeconds = nextThreshold,
+        )
+      }
+    }
+  }
+
+  fun setTipFixedMinutes(minutes: Int) {
+    val safe = minutes.coerceIn(10, 120)
+    viewModelScope.launch {
+      readerRepository.updateSettings { current ->
+        current.copy(
+          tipFixedMinutes = safe,
+          nextTipPromptAtReadingSeconds = current.totalReadingSecondsAllTime + (safe * 60L),
+        )
+      }
+    }
+  }
+
+  fun markSupportedViaTipJar() {
+    viewModelScope.launch {
+      val isFa = uiState.value.settings.appLanguage == AppLanguage.PERSIAN
+      readerRepository.updateSettings {
+        it.copy(
+          hasSupportedViaTipJar = true,
+          lastTipPromptShownAtMillis = System.currentTimeMillis(),
+        )
+      }
+      message.value =
+        if (isFa) "از حمایت ارزشمند شما سپاسگزاریم!"
+        else "Thank you so much for supporting PageNest!"
+    }
+  }
+
+  fun redeemSupporterCode(code: String): Boolean {
+    if (!MonetizationConfig.isValidSupporterCode(code)) return false
+    viewModelScope.launch {
+      val isFa = uiState.value.settings.appLanguage == AppLanguage.PERSIAN
+      readerRepository.updateSettings {
+        it.copy(
+          isProUnlocked = true,
+          hasSupportedViaTipJar = true,
+          proSupporterNote = code.trim().uppercase(),
+        )
+      }
+      message.value =
+        if (isFa) "نسخه پیج‌نست Pro فعال شد — سپاس از حمایت شما!"
+        else "PageNest Pro activated — thank you for your support!"
+    }
+    return true
   }
 
   fun selectBuiltInFont(option: ReaderFontOption) {

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Coffee
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -100,7 +102,10 @@ import com.example.model.AppLanguage
 import com.example.model.ReaderFontOption
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.model.TipPromptMode
 import com.example.ui.i18n.LocalAppStrings
+import com.example.ui.monetization.PageNestProDialog
+import com.example.ui.monetization.TipJarDialog
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.LoraFontFamily
@@ -111,6 +116,7 @@ import com.example.ui.theme.VazirmatnFontFamily
 import com.example.ui.theme.toPalette
 import com.example.widget.PageNestContinueWidgetReceiver
 import java.io.File
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,6 +135,8 @@ fun SettingsScreen(
   var showVoicePicker by remember { mutableStateOf(false) }
   var showChangelogDialog by remember { mutableStateOf(false) }
   var showReminderTimeDialog by remember { mutableStateOf(false) }
+  var showTipJarDialog by remember { mutableStateOf(false) }
+  var showProDialog by remember { mutableStateOf(false) }
   var pendingNotificationAction by remember { mutableStateOf<String?>(null) }
 
   val notificationPermissionLauncher =
@@ -629,6 +637,212 @@ fun SettingsScreen(
                       Text(
                         text = if (isFa) "افزودن ویجت" else "Pin Widget",
                         style = MaterialTheme.typography.labelMedium,
+                      )
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // 1c. Support & PageNest Pro
+          item {
+            SettingsSectionLabel(strings.supportAndProSection)
+            SettingsGroupCard {
+              Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+              ) {
+                Surface(
+                  shape = RoundedCornerShape(14.dp),
+                  color =
+                    if (uiState.settings.isProUnlocked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                  border =
+                    BorderStroke(
+                      width = 1.dp,
+                      color =
+                        if (uiState.settings.isProUnlocked) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                  modifier =
+                    Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(14.dp))
+                      .clickable { showProDialog = true }
+                      .testTag("settings_pro_card"),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                  ) {
+                    Row(
+                      verticalAlignment = Alignment.CenterVertically,
+                      modifier = Modifier.weight(1f),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.WorkspacePremium,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                      )
+                      Spacer(modifier = Modifier.width(10.dp))
+                      Column {
+                        Text(
+                          text =
+                            if (uiState.settings.isProUnlocked) strings.proActiveTitle
+                            else strings.proHeroTitle,
+                          style = MaterialTheme.typography.titleSmall,
+                          color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                          text =
+                            if (uiState.settings.isProUnlocked) strings.proActiveSub
+                            else strings.proHeroSub,
+                          style = MaterialTheme.typography.bodySmall,
+                          color = MaterialTheme.colorScheme.onSurfaceVariant,
+                          maxLines = 2,
+                          overflow = TextOverflow.Ellipsis,
+                        )
+                      }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                      text =
+                        if (uiState.settings.isProUnlocked) strings.proBadge
+                        else strings.openLinkAction,
+                      style = MaterialTheme.typography.labelMedium,
+                      fontWeight = FontWeight.SemiBold,
+                      color = MaterialTheme.colorScheme.primary,
+                    )
+                  }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.Coffee,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                      Text(
+                        text = strings.tipJarTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                      )
+                      Text(
+                        text = strings.tipJarSubtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      )
+                    }
+                  }
+                  OutlinedButton(
+                    onClick = { showTipJarDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("settings_tip_jar_button"),
+                  ) {
+                    Text(strings.tipJarTitle, style = MaterialTheme.typography.labelMedium)
+                  }
+                }
+
+                if (!uiState.settings.isProUnlocked) {
+                  HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                  Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                      text = strings.tipJarScheduleLabel,
+                      style = MaterialTheme.typography.titleSmall,
+                      color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                      text = strings.tipJarScheduleSub,
+                      style = MaterialTheme.typography.bodySmall,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                      TipPromptMode.entries.forEach { mode ->
+                        val selected = uiState.settings.tipPromptMode == mode
+                        Surface(
+                          shape = RoundedCornerShape(12.dp),
+                          color =
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                          border =
+                            BorderStroke(
+                              width = 1.dp,
+                              color =
+                                if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                            ),
+                          modifier =
+                            Modifier
+                              .weight(1f)
+                              .clip(RoundedCornerShape(12.dp))
+                              .clickable { viewModel.setTipPromptMode(mode) }
+                              .testTag("settings_tip_mode_${mode.name.lowercase()}"),
+                        ) {
+                          Box(
+                            modifier = Modifier.padding(vertical = 9.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center,
+                          ) {
+                            Text(
+                              text = if (isFa) mode.faLabel else mode.label,
+                              style = MaterialTheme.typography.labelSmall,
+                              fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                              color =
+                                if (selected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurface,
+                              maxLines = 1,
+                              overflow = TextOverflow.Ellipsis,
+                            )
+                          }
+                        }
+                      }
+                    }
+
+                    if (uiState.settings.tipPromptMode == TipPromptMode.FIXED_USAGE) {
+                      Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                      ) {
+                        Text(
+                          text = strings.tipJarFixedMinutesLabel(uiState.settings.tipFixedMinutes),
+                          style = MaterialTheme.typography.labelMedium,
+                          color = MaterialTheme.colorScheme.primary,
+                        )
+                      }
+                      Slider(
+                        value = uiState.settings.tipFixedMinutes.toFloat(),
+                        onValueChange = { viewModel.setTipFixedMinutes(it.roundToInt()) },
+                        valueRange = 10f..120f,
+                        steps = 10,
+                        colors =
+                          SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                          ),
+                        modifier = Modifier.testTag("settings_tip_fixed_minutes_slider"),
                       )
                     }
                   }
@@ -1159,6 +1373,32 @@ fun SettingsScreen(
           Text(strings.saveGoal, color = MaterialTheme.colorScheme.primary)
         }
       },
+    )
+  }
+
+  if (showTipJarDialog) {
+    val totalMins = (uiState.settings.totalReadingSecondsAllTime / 60L).toInt()
+    TipJarDialog(
+      totalReadingMinutes = totalMins,
+      isFromRecommendation = false,
+      isProUnlocked = uiState.settings.isProUnlocked,
+      hasSupportedAlready = uiState.settings.hasSupportedViaTipJar,
+      isFa = isFa,
+      onMarkSupported = viewModel::markSupportedViaTipJar,
+      onOpenProDialog = {
+        showTipJarDialog = false
+        showProDialog = true
+      },
+      onDismiss = { showTipJarDialog = false },
+    )
+  }
+
+  if (showProDialog) {
+    PageNestProDialog(
+      isProUnlocked = uiState.settings.isProUnlocked,
+      isFa = isFa,
+      onRedeemSupporterCode = viewModel::redeemSupporterCode,
+      onDismiss = { showProDialog = false },
     )
   }
 }
