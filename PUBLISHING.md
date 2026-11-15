@@ -11,6 +11,7 @@
 | `PageNest-debug-APK` | `PageNest-3.0-3-debug.apk` | نصب و تست شخصی؛ برای انتشار فروشگاهی نیست |
 | `PageNest-release-APK` | `PageNest-3.0-3-release.apk` | نسخه رسمی امضاشده؛ فایل مناسب برای آپلود در مایکت، اگر پنل APK بخواهد |
 | `PageNest-release-AAB` | `PageNest-3.0-3-release.aab` | Android App Bundle امضاشده؛ برای فروشگاه‌ها یا فرایندهایی که AAB درخواست می‌کنند |
+| `PageNest-build-checksums` | `SHA256SUMS.txt` | هش SHA-256 برای بررسی یکپارچگی فایل‌های خروجی |
 
 نام دقیق فایل با `versionName` و `versionCode` فعلی پروژه ساخته می‌شود. فایل `SHA256SUMS.txt` هم برای بررسی سلامت خروجی‌ها تولید می‌شود.
 
