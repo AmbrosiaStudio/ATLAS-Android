@@ -47,7 +47,7 @@
 
 `PageNest-signing-key-BOOTSTRAP-PRIVATE`
 
-این Artifact شامل فایل keystore و اطلاعات رمز آن است و فقط **۱ روز** نگهداری می‌شود. چون مخزن فعلی خصوصی است، آن را فقط خودت دانلود کن و با هیچ‌کس به اشتراک نگذار.
+این Artifact شامل فایل keystore و اطلاعات رمز آن است و فقط **۱ روز** نگهداری می‌شود. این Artifact بلافاصله پس از تولید کلید و پیش از Build آپلود می‌شود؛ بنابراین حتی اگر Build شکست بخورد، کلید را در اختیار داری. چون مخزن فعلی خصوصی است، آن را فقط خودت دانلود کن و با هیچ‌کس به اشتراک نگذار.
 
 1. Artifact بالا را از همان Run دانلود و Extract کن.
 2. فایل `my-upload-key.jks` و `README-KEEP-PRIVATE.txt` را نگه دار.
@@ -66,7 +66,7 @@ Set-Clipboard $base64
 | Secret name | مقدار |
 |---|---|
 | `ANDROID_KEYSTORE_BASE64` | مقدار Base64 کپی‌شده از JKS |
-| `ANDROID_KEYSTORE_PASSWORD` | رمز Store که در README خصوصی Artifact نوشته شده |
+| `ANDROID_KEYSTORE_PASSWORD` | همان رمز Store که در README خصوصی Artifact نوشته شده |
 | `ANDROID_KEY_ALIAS` | مقدار Alias نوشته‌شده در README خصوصی Artifact |
 | `ANDROID_KEY_PASSWORD` | رمز Key نوشته‌شده در README خصوصی Artifact |
 
