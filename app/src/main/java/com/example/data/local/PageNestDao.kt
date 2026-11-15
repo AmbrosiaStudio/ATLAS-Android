@@ -115,4 +115,53 @@ interface PageNestDao {
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertBookProgressPoint(point: BookProgressPointEntity)
+
+  // Metadata, Status & Favorites
+  @Query(
+    """
+    UPDATE books
+    SET title = :title,
+        author = :author,
+        readingStatus = :readingStatus,
+        isFavorite = :isFavorite,
+        coverPath = :coverPath
+    WHERE id = :bookId
+    """
+  )
+  suspend fun updateBookMetadata(
+    bookId: String,
+    title: String,
+    author: String,
+    readingStatus: String,
+    isFavorite: Boolean,
+    coverPath: String?,
+  )
+
+  @Query("UPDATE books SET readingStatus = :readingStatus WHERE id = :bookId")
+  suspend fun updateBookReadingStatus(bookId: String, readingStatus: String)
+
+  @Query("UPDATE books SET isFavorite = :isFavorite WHERE id = :bookId")
+  suspend fun updateBookFavorite(bookId: String, isFavorite: Boolean)
+
+  // Custom Shelves & Collections
+  @Query("SELECT * FROM shelves ORDER BY createdAt ASC, name ASC")
+  fun observeAllShelves(): Flow<List<ShelfEntity>>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertShelf(shelf: ShelfEntity): Long
+
+  @Query("UPDATE shelves SET name = :name WHERE id = :shelfId")
+  suspend fun renameShelf(shelfId: Long, name: String)
+
+  @Query("DELETE FROM shelves WHERE id = :shelfId")
+  suspend fun deleteShelfById(shelfId: Long)
+
+  @Query("SELECT * FROM book_shelf_cross_ref")
+  fun observeAllBookShelfRefs(): Flow<List<BookShelfCrossRef>>
+
+  @Insert(onConflict = OnConflictStrategy.IGNORE)
+  suspend fun insertBookShelfRef(ref: BookShelfCrossRef)
+
+  @Query("DELETE FROM book_shelf_cross_ref WHERE bookId = :bookId AND shelfId = :shelfId")
+  suspend fun deleteBookShelfRef(bookId: String, shelfId: Long)
 }

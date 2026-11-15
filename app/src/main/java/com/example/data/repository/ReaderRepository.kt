@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import android.content.Context
 import com.example.data.local.BookEntity
 import com.example.data.local.BookProgressPointEntity
 import com.example.data.local.BookmarkEntity
@@ -8,6 +9,8 @@ import com.example.data.local.HighlightEntity
 import com.example.data.local.PageNestDao
 import com.example.data.local.ReaderPreferencesDataStore
 import com.example.model.ReaderSettings
+import com.example.model.ReadingStatus
+import com.example.widget.PageNestContinueWidget
 import kotlin.math.abs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.first
 class ReaderRepository(
   private val dao: PageNestDao,
   private val preferences: ReaderPreferencesDataStore,
+  private val appContext: Context? = null,
 ) {
   val settingsFlow: Flow<ReaderSettings> = preferences.settingsFlow
   val lastOpenedBookIdFlow: Flow<String?> = preferences.lastOpenedBookIdFlow
@@ -38,6 +42,7 @@ class ReaderRepository(
 
   suspend fun setLastOpenedBookId(bookId: String?) {
     preferences.setLastOpenedBookId(bookId)
+    appContext?.let { PageNestContinueWidget.requestUpdate(it) }
   }
 
   suspend fun updateTotalUnits(bookId: String, totalUnits: Int) {
@@ -50,13 +55,28 @@ class ReaderRepository(
     scrollFraction: Float,
     progressPercent: Float,
   ) {
+    val clampedProgress = progressPercent.coerceIn(0f, 100f)
     dao.updateReadingProgress(
       bookId = bookId,
       chapterOrPage = chapterOrPage,
       scrollFraction = scrollFraction.coerceIn(0f, 1f),
-      progressPercent = progressPercent.coerceIn(0f, 100f),
+      progressPercent = clampedProgress,
       lastOpenedAt = System.currentTimeMillis(),
     )
+    val existing = dao.getBookById(bookId)
+    if (existing != null) {
+      val currentStatus = existing.status()
+      val nextStatus =
+        when {
+          clampedProgress >= 98f -> ReadingStatus.FINISHED
+          currentStatus == ReadingStatus.UNREAD && clampedProgress >= 0.5f -> ReadingStatus.READING
+          else -> currentStatus
+        }
+      if (nextStatus != currentStatus) {
+        dao.updateBookReadingStatus(bookId, nextStatus.name)
+      }
+    }
+    appContext?.let { PageNestContinueWidget.requestUpdate(it) }
   }
 
   suspend fun addBookmark(
@@ -128,6 +148,7 @@ class ReaderRepository(
       nowMillis = System.currentTimeMillis(),
       minSecondsFloorForToday = floor,
     )
+    appContext?.let { PageNestContinueWidget.requestUpdate(it) }
   }
 
   suspend fun recordPagesRead(deltaPages: Int) {
@@ -193,6 +214,7 @@ class ReaderRepository(
   suspend fun setDailyGoalMinutes(minutes: Int) {
     val safe = minutes.coerceIn(5, 240)
     preferences.updateSettings { it.copy(dailyGoalMinutes = safe) }
+    appContext?.let { PageNestContinueWidget.requestUpdate(it) }
   }
 
   fun currentDateKey(): String {

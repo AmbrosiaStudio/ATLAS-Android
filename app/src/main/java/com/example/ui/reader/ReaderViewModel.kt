@@ -8,8 +8,11 @@ import com.example.data.local.BookEntity
 import com.example.data.local.BookmarkEntity
 import com.example.data.local.HighlightEntity
 import com.example.data.repository.ReaderRepository
+import com.example.engine.cbz.CbzEngine
+import com.example.engine.cbz.CbzSession
 import com.example.engine.epub.EpubParser
 import com.example.engine.fonts.FontManager
+import com.example.engine.formats.TextFormatsConverter
 import com.example.engine.pdf.PdfEngine
 import com.example.engine.pdf.PdfSession
 import com.example.engine.translate.TargetLanguageOption
@@ -53,6 +56,9 @@ sealed interface ReaderDocumentState {
   ) : ReaderDocumentState
   data class PdfReady(
     val session: PdfSession,
+  ) : ReaderDocumentState
+  data class CbzReady(
+    val session: CbzSession,
   ) : ReaderDocumentState
   data class Error(val message: String) : ReaderDocumentState
 }
@@ -112,6 +118,7 @@ data class ReaderUiState(
       when (val doc = documentState) {
         is ReaderDocumentState.EpubReady -> doc.book.chapters.size
         is ReaderDocumentState.PdfReady -> doc.session.pageCount
+        is ReaderDocumentState.CbzReady -> doc.session.pageCount
         else -> book?.totalUnits ?: 1
       }.coerceAtLeast(1)
 
@@ -122,7 +129,7 @@ data class ReaderUiState(
           val total = totalUnits.toFloat()
           (((currentChapterOrPage + currentScrollFraction) / total) * 100f).coerceIn(0f, 100f)
         }
-        is ReaderDocumentState.PdfReady -> {
+        is ReaderDocumentState.PdfReady, is ReaderDocumentState.CbzReady -> {
           if (totalUnits <= 1) 100f
           else (((currentChapterOrPage + 1).toFloat() / totalUnits.toFloat()) * 100f).coerceIn(0f, 100f)
         }
@@ -137,7 +144,7 @@ data class ReaderUiState(
             val remainingUnits = (totalUnits - currentChapterOrPage - currentScrollFraction).coerceAtLeast(0.1f)
             remainingUnits * 4.5f
           }
-          is ReaderDocumentState.PdfReady -> {
+          is ReaderDocumentState.PdfReady, is ReaderDocumentState.CbzReady -> {
             val remainingPages = (totalUnits - currentChapterOrPage).coerceAtLeast(1)
             remainingPages * 1.4f
           }
@@ -150,11 +157,13 @@ data class ReaderUiState(
     }
 
   val isCurrentLocationBookmarked: Boolean
-    get() =
-      bookmarks.any { bm ->
+    get() {
+      val isFixedPage = book?.bookFormat()?.isReflowableText == false
+      return bookmarks.any { bm ->
         bm.chapterOrPageIndex == currentChapterOrPage &&
-          (book?.bookFormat() == BookFormat.PDF || abs(bm.scrollFraction - currentScrollFraction) < 0.08f)
+          (isFixedPage || abs(bm.scrollFraction - currentScrollFraction) < 0.08f)
       }
+    }
 
   val currentChapterHighlights: List<HighlightEntity>
     get() = highlights.filter { it.chapterOrPageIndex == currentChapterOrPage }
@@ -166,6 +175,8 @@ class ReaderViewModel(
   private val readerRepository: ReaderRepository,
   private val epubParser: EpubParser,
   private val pdfEngine: PdfEngine,
+  private val textFormatsConverter: TextFormatsConverter,
+  private val cbzEngine: CbzEngine,
   private val fontManager: FontManager,
   private val textTranslator: TextTranslator,
 ) : ViewModel() {
@@ -187,6 +198,7 @@ class ReaderViewModel(
   private val visitedPageKeysInSession = mutableSetOf<String>()
   private var isSessionPageBaselineRecorded = false
   private var pdfSessionRef: PdfSession? = null
+  private var cbzSessionRef: CbzSession? = null
 
   private data class PositionState(
     val chapterOrPage: Int = 0,
@@ -318,11 +330,17 @@ class ReaderViewModel(
         return@launch
       }
 
-      when (book.bookFormat()) {
-        BookFormat.EPUB -> {
+      val bookFormat = book.bookFormat()
+      when (bookFormat) {
+        BookFormat.EPUB, BookFormat.TXT, BookFormat.MD, BookFormat.FB2 -> {
           val fontsDir = epubParser.ensureFontsCopied()
-          epubParser
-            .loadBook(file, book.id, book.title)
+          val loadResult =
+            if (bookFormat == BookFormat.EPUB) {
+              epubParser.loadBook(file, book.id, book.title)
+            } else {
+              textFormatsConverter.loadBook(file, bookFormat, book.id, book.title)
+            }
+          loadResult
             .onSuccess { parsed ->
               val safeIndex = book.currentChapterOrPage.coerceIn(0, parsed.chapters.lastIndex)
               positionState.value =
@@ -346,7 +364,7 @@ class ReaderViewModel(
             }
             .onFailure { err ->
               docState.value =
-                ReaderDocumentState.Error(err.message ?: "Failed to open EPUB document.")
+                ReaderDocumentState.Error(err.message ?: "Failed to open ${bookFormat.name} document.")
             }
         }
         BookFormat.PDF -> {
@@ -378,6 +396,37 @@ class ReaderViewModel(
             .onFailure { err ->
               docState.value =
                 ReaderDocumentState.Error(err.message ?: "Failed to render PDF document.")
+            }
+        }
+        BookFormat.CBZ -> {
+          cbzEngine
+            .openSession(file)
+            .onSuccess { session ->
+              cbzSessionRef = session
+              val safePage = book.currentChapterOrPage.coerceIn(0, session.pageCount - 1)
+              positionState.value =
+                PositionState(
+                  chapterOrPage = safePage,
+                  scrollFraction = 0f,
+                  jumpToPdfPageSignal = safePage to 1,
+                )
+              readerRepository.updateTotalUnits(book.id, session.pageCount)
+              docState.value = ReaderDocumentState.CbzReady(session)
+              val startPercent =
+                if (session.pageCount <= 1) 100f
+                else (((safePage + 1).toFloat() / session.pageCount.toFloat()) * 100f)
+              readerRepository.recordBookProgressSnapshot(
+                bookId = book.id,
+                progressPercent = startPercent,
+                pageOrUnitIndex = safePage,
+                forceInitialOnly = true,
+              )
+              persistProgressNow()
+              startReadingTimer()
+            }
+            .onFailure { err ->
+              docState.value =
+                ReaderDocumentState.Error(err.message ?: "Failed to open CBZ comic archive.")
             }
         }
       }
@@ -460,7 +509,7 @@ class ReaderViewModel(
         }
         if (autoPlay) readAloud.play()
       } else {
-        showToast("Listen mode works with reflowable EPUB text.")
+        showToast("Listen mode works with reflowable text books.")
       }
     }
   }
@@ -550,6 +599,11 @@ class ReaderViewModel(
         goToChapter(chapterIdx, frac)
       }
       is ReaderDocumentState.PdfReady -> {
+        val total = doc.session.pageCount.coerceAtLeast(1)
+        val page = (((clamped / 100f) * (total - 1)).roundToInt()).coerceIn(0, total - 1)
+        jumpToPdfPage(page)
+      }
+      is ReaderDocumentState.CbzReady -> {
         val total = doc.session.pageCount.coerceAtLeast(1)
         val page = (((clamped / 100f) * (total - 1)).roundToInt()).coerceIn(0, total - 1)
         jumpToPdfPage(page)
@@ -657,9 +711,10 @@ class ReaderViewModel(
   fun toggleCurrentBookmark() {
     val state = uiState.value
     val pos = positionState.value
+    val isFixedPage = state.book?.bookFormat()?.isReflowableText == false
     viewModelScope.launch {
       if (state.isCurrentLocationBookmarked) {
-        if (state.book?.bookFormat() == BookFormat.PDF) {
+        if (isFixedPage) {
           state.bookmarks
             .filter { it.chapterOrPageIndex == pos.chapterOrPage }
             .forEach { readerRepository.deleteBookmark(it.id) }
@@ -669,10 +724,10 @@ class ReaderViewModel(
         showToast("Bookmark removed")
       } else {
         val title =
-          if (state.book?.bookFormat() == BookFormat.PDF) "Page ${pos.chapterOrPage + 1}"
+          if (isFixedPage) "Page ${pos.chapterOrPage + 1}"
           else state.currentChapter?.title ?: "Section ${pos.chapterOrPage + 1}"
         val snippet =
-          if (state.book?.bookFormat() == BookFormat.PDF)
+          if (isFixedPage)
             "Bookmarked at ${(state.overallProgressPercent).roundToInt()}%"
           else "Saved at ${(pos.scrollFraction * 100).roundToInt()}% of section"
         readerRepository.addBookmark(
@@ -936,6 +991,8 @@ class ReaderViewModel(
     readAloud.release()
     pdfSessionRef?.close()
     pdfSessionRef = null
+    cbzSessionRef?.close()
+    cbzSessionRef = null
   }
 
   class Factory(
@@ -944,6 +1001,8 @@ class ReaderViewModel(
     private val readerRepository: ReaderRepository,
     private val epubParser: EpubParser,
     private val pdfEngine: PdfEngine,
+    private val textFormatsConverter: TextFormatsConverter,
+    private val cbzEngine: CbzEngine,
     private val fontManager: FontManager,
     private val textTranslator: TextTranslator,
   ) : ViewModelProvider.Factory {
@@ -955,6 +1014,8 @@ class ReaderViewModel(
         readerRepository = readerRepository,
         epubParser = epubParser,
         pdfEngine = pdfEngine,
+        textFormatsConverter = textFormatsConverter,
+        cbzEngine = cbzEngine,
         fontManager = fontManager,
         textTranslator = textTranslator,
       ) as T

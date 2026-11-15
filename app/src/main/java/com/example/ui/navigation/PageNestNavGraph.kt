@@ -37,14 +37,33 @@ const val ROUTE_SETTINGS = "settings"
 const val ROUTE_STATS = "stats?bookId={bookId}"
 
 @Composable
-fun PageNestNavGraph(container: AppContainer) {
+fun PageNestNavGraph(
+  container: AppContainer,
+  widgetBookId: String? = null,
+  onConsumeWidgetBookId: () -> Unit = {},
+) {
   val navController = rememberNavController()
   val context = LocalContext.current.applicationContext as Application
   var initialRestoreDone by rememberSaveable { mutableStateOf(false) }
 
+  // Open requested book directly when launched from Home Screen "Continue Reading" Widget
+  LaunchedEffect(widgetBookId) {
+    val targetId = widgetBookId
+    if (!targetId.isNullOrBlank()) {
+      initialRestoreDone = true
+      val bookExists = container.readerRepository.getBookById(targetId) != null
+      onConsumeWidgetBookId()
+      if (bookExists) {
+        navController.navigate("reader/$targetId") {
+          launchSingleTop = true
+        }
+      }
+    }
+  }
+
   // Restore last active reading session on cold start if enabled and book exists
   LaunchedEffect(Unit) {
-    if (!initialRestoreDone) {
+    if (!initialRestoreDone && widgetBookId.isNullOrBlank()) {
       initialRestoreDone = true
       val settings = container.readerRepository.settingsFlow.first()
       val lastBookId = container.readerRepository.lastOpenedBookIdFlow.first()
@@ -115,6 +134,8 @@ fun PageNestNavGraph(container: AppContainer) {
               readerRepository = container.readerRepository,
               epubParser = container.epubParser,
               pdfEngine = container.pdfEngine,
+              textFormatsConverter = container.textFormatsConverter,
+              cbzEngine = container.cbzEngine,
               fontManager = container.fontManager,
               textTranslator = container.textTranslator,
             ),

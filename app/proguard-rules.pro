@@ -20,3 +20,7 @@
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 -dontwarn kotlinx.coroutines.**
+
+# Jetpack Glance AppWidget & WorkManager
+-keep class * implements androidx.glance.appwidget.action.ActionCallback { public <init>(); }
+-keep class * extends androidx.work.CoroutineWorker { public <init>(...); }

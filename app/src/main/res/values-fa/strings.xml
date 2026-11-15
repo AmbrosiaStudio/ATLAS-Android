@@ -23,4 +23,5 @@
     <string name="bookmarks_tab">نشانک‌ها</string>
     <string name="highlights_tab">هایلایت‌ها</string>
     <string name="search_tab">جستجو</string>
+    <string name="widget_continue_description">ادامه آخرین کتاب و نمایش پیشرفت هدف مطالعه امروز.</string>
 </resources>

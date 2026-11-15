@@ -110,6 +110,9 @@ dependencies {
   implementation(libs.haze)
   implementation(libs.mlkit.translate)
   implementation(libs.mlkit.language.id)
+  implementation(libs.androidx.glance.appwidget)
+  implementation(libs.androidx.glance.material3)
+  implementation(libs.androidx.work.runtime.ktx)
   // implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)
   // Uncomment to use Firestore:

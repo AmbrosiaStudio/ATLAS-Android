@@ -58,6 +58,9 @@ class ReaderPreferencesDataStore(private val context: Context) {
     val TODAY_READING_SECONDS = intPreferencesKey("today_reading_seconds")
     val LAST_READING_DATE_KEY = stringPreferencesKey("last_reading_date_key")
     val TOTAL_READING_SECONDS = longPreferencesKey("total_reading_seconds_all_time")
+    val STREAK_REMINDER_ENABLED = booleanPreferencesKey("streak_reminder_enabled")
+    val STREAK_REMINDER_HOUR = intPreferencesKey("streak_reminder_hour")
+    val STREAK_REMINDER_MINUTE = intPreferencesKey("streak_reminder_minute")
   }
 
   private fun Preferences.toSettings(): ReaderSettings =
@@ -108,6 +111,9 @@ class ReaderPreferencesDataStore(private val context: Context) {
       todayReadingSeconds = (this[Keys.TODAY_READING_SECONDS] ?: 0).coerceAtLeast(0),
       lastReadingDateKey = this[Keys.LAST_READING_DATE_KEY].orEmpty(),
       totalReadingSecondsAllTime = (this[Keys.TOTAL_READING_SECONDS] ?: 0L).coerceAtLeast(0L),
+      streakReminderEnabled = this[Keys.STREAK_REMINDER_ENABLED] ?: false,
+      streakReminderHour = (this[Keys.STREAK_REMINDER_HOUR] ?: 20).coerceIn(0, 23),
+      streakReminderMinute = (this[Keys.STREAK_REMINDER_MINUTE] ?: 0).coerceIn(0, 59),
     )
 
   val settingsFlow: Flow<ReaderSettings> = context.readerDataStore.data.map { it.toSettings() }
@@ -152,6 +158,9 @@ class ReaderPreferencesDataStore(private val context: Context) {
       prefs[Keys.TODAY_READING_SECONDS] = next.todayReadingSeconds
       prefs[Keys.LAST_READING_DATE_KEY] = next.lastReadingDateKey
       prefs[Keys.TOTAL_READING_SECONDS] = next.totalReadingSecondsAllTime
+      prefs[Keys.STREAK_REMINDER_ENABLED] = next.streakReminderEnabled
+      prefs[Keys.STREAK_REMINDER_HOUR] = next.streakReminderHour
+      prefs[Keys.STREAK_REMINDER_MINUTE] = next.streakReminderMinute
     }
   }
 

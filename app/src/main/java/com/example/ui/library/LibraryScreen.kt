@@ -40,9 +40,14 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
@@ -95,10 +100,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.local.BookEntity
+import com.example.data.local.ShelfEntity
 import com.example.model.AppLanguage
 import com.example.model.BookFormat
 import com.example.model.LibraryLayoutMode
 import com.example.model.LibrarySortOrder
+import com.example.model.LibraryStatusFilter
+import com.example.model.ReadingStatus
 import com.example.ui.i18n.LocalAppStrings
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.NotoNaskhFontFamily
@@ -121,6 +129,9 @@ fun LibraryScreen(
   var showSortMenu by remember { mutableStateOf(false) }
   var showMoreMenu by remember { mutableStateOf(false) }
   var showGoalDialog by remember { mutableStateOf(false) }
+  var showCreateShelfDialog by remember { mutableStateOf(false) }
+  var shelfPendingDelete by remember { mutableStateOf<ShelfEntity?>(null) }
+  var bookPendingEdit by remember { mutableStateOf<BookEntity?>(null) }
   var bookPendingDelete by remember { mutableStateOf<BookEntity?>(null) }
 
   val documentPicker =
@@ -131,13 +142,7 @@ fun LibraryScreen(
     }
 
   val launchImportPicker = {
-    documentPicker.launch(
-      arrayOf(
-        "application/epub+zip",
-        "application/pdf",
-        "application/octet-stream",
-      )
-    )
+    documentPicker.launch(arrayOf("*/*"))
   }
 
   LaunchedEffect(uiState.errorMessage, uiState.infoMessage) {
@@ -221,8 +226,8 @@ fun LibraryScreen(
                   )
                   Text(
                     text =
-                      if (uiState.books.isEmpty()) strings.librarySubtitle
-                      else strings.volumesCount(uiState.books.size),
+                      if (uiState.totalLibraryCount == 0) strings.librarySubtitle
+                      else strings.volumesCount(uiState.totalLibraryCount),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -329,7 +334,7 @@ fun LibraryScreen(
             }
 
             // Tier 2: Sort Selector Pill & Segmented Grid/List Switcher
-            if (uiState.books.isNotEmpty()) {
+            if (uiState.totalLibraryCount > 0) {
               Row(
                 modifier =
                   Modifier
@@ -469,7 +474,7 @@ fun LibraryScreen(
           }
         }
 
-        if (uiState.books.isEmpty() && uiState.searchQuery.isBlank()) {
+        if (uiState.totalLibraryCount == 0 && !uiState.hasActiveFilterOrSearch) {
           EmptyLibraryView(
             isImporting = uiState.isImporting,
             onImportClick = launchImportPicker,
@@ -548,10 +553,167 @@ fun LibraryScreen(
               }
             }
 
+            // Reading Status & Favorites Filter Chips + Custom Shelves Bar
+            item {
+              Spacer(modifier = Modifier.height(6.dp))
+              LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                items(LibraryStatusFilter.entries) { filter ->
+                  val selected = uiState.selectedStatusFilter == filter
+                  Surface(
+                    shape = CircleShape,
+                    color =
+                      if (selected) MaterialTheme.colorScheme.primary
+                      else MaterialTheme.colorScheme.surface,
+                    border =
+                      BorderStroke(
+                        width = 1.dp,
+                        color =
+                          if (selected) MaterialTheme.colorScheme.primary
+                          else MaterialTheme.colorScheme.outlineVariant,
+                      ),
+                    modifier =
+                      Modifier
+                        .clip(CircleShape)
+                        .clickable { viewModel.setStatusFilter(filter) }
+                        .testTag("filter_status_${filter.name.lowercase()}"),
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                      if (filter == LibraryStatusFilter.FAVORITES) {
+                        Icon(
+                          imageVector = Icons.Rounded.Favorite,
+                          contentDescription = null,
+                          tint =
+                            if (selected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(13.dp),
+                        )
+                      }
+                      Text(
+                        text = if (isFa) filter.faLabel else filter.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        color =
+                          if (selected) MaterialTheme.colorScheme.onPrimary
+                          else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        softWrap = false,
+                      )
+                    }
+                  }
+                }
+              }
+
+              // Custom Shelves & Collections Row
+              LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                item {
+                  Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                    modifier =
+                      Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showCreateShelfDialog = true }
+                        .testTag("new_shelf_button"),
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(15.dp),
+                      )
+                      Text(
+                        text = strings.newShelfAction,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1,
+                        softWrap = false,
+                      )
+                    }
+                  }
+                }
+
+                items(uiState.shelves, key = { "shelf_${it.id}" }) { shelf ->
+                  val selected = uiState.selectedShelfId == shelf.id
+                  Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color =
+                      if (selected) MaterialTheme.colorScheme.primaryContainer
+                      else MaterialTheme.colorScheme.surface,
+                    border =
+                      BorderStroke(
+                        width = 1.dp,
+                        color =
+                          if (selected) MaterialTheme.colorScheme.primary
+                          else MaterialTheme.colorScheme.outlineVariant,
+                      ),
+                    modifier =
+                      Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { viewModel.selectShelfFilter(shelf.id) }
+                        .testTag("shelf_chip_${shelf.id}"),
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(start = 11.dp, end = if (selected) 6.dp else 11.dp, top = 7.dp, bottom = 7.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.Bookmarks,
+                        contentDescription = null,
+                        tint =
+                          if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                          else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                      )
+                      Text(
+                        text = shelf.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        color =
+                          if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                          else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        softWrap = false,
+                      )
+                      if (selected) {
+                        Icon(
+                          imageVector = Icons.Rounded.Close,
+                          contentDescription = "Delete shelf ${shelf.name}",
+                          tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                          modifier =
+                            Modifier
+                              .size(16.dp)
+                              .clip(CircleShape)
+                              .clickable { shelfPendingDelete = shelf },
+                        )
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
             // Daily Reading Goal Tracker Card
-            if (uiState.searchQuery.isBlank()) {
+            if (!uiState.hasActiveFilterOrSearch) {
               item {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 DailyReadingGoalCard(
                   todayMinutes = uiState.todayReadingMinutes,
                   todaySeconds = uiState.todayReadingSeconds,
@@ -571,7 +733,7 @@ fun LibraryScreen(
             }
 
             // Continue Reading Hero Card
-            if (uiState.searchQuery.isBlank() && uiState.continueBook != null) {
+            if (!uiState.hasActiveFilterOrSearch && uiState.continueBook != null) {
               val heroBook = uiState.continueBook!!
               item {
                 Spacer(modifier = Modifier.height(14.dp))
@@ -593,7 +755,7 @@ fun LibraryScreen(
             }
 
             // Recently Opened Rail
-            if (uiState.searchQuery.isBlank() && uiState.recentBooks.size > 1) {
+            if (!uiState.hasActiveFilterOrSearch && uiState.recentBooks.size > 1) {
               item {
                 Spacer(modifier = Modifier.height(14.dp))
                 SectionHeading(title = strings.recentlyOpened)
@@ -613,7 +775,7 @@ fun LibraryScreen(
               Spacer(modifier = Modifier.height(14.dp))
               SectionHeading(
                 title =
-                  if (uiState.searchQuery.isNotBlank()) strings.matchingBooks
+                  if (uiState.hasActiveFilterOrSearch) strings.matchingBooks
                   else strings.allBooks,
               )
             }
@@ -621,13 +783,16 @@ fun LibraryScreen(
             if (uiState.books.isEmpty()) {
               item {
                 Box(
-                  modifier = Modifier.fillMaxWidth().padding(40.dp),
+                  modifier = Modifier.fillMaxWidth().padding(32.dp),
                   contentAlignment = Alignment.Center,
                 ) {
                   Text(
-                    text = strings.noMatchingBooks(uiState.searchQuery),
+                    text =
+                      if (uiState.searchQuery.isNotBlank()) strings.noMatchingBooks(uiState.searchQuery)
+                      else strings.noBooksInFilter,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                   )
                 }
               }
@@ -641,7 +806,10 @@ fun LibraryScreen(
                   rowBooks.forEach { book ->
                     BookGridCard(
                       book = book,
+                      isFa = isFa,
                       onClick = { onOpenBook(book.id) },
+                      onEditClick = { bookPendingEdit = book },
+                      onToggleFavorite = { viewModel.toggleBookFavorite(book) },
                       onDeleteClick = { bookPendingDelete = book },
                       modifier = Modifier.weight(1f).testTag("book_card_${book.id}"),
                     )
@@ -655,7 +823,10 @@ fun LibraryScreen(
               items(uiState.books, key = { "list_${it.id}" }) { book ->
                 BookListRow(
                   book = book,
+                  isFa = isFa,
                   onClick = { onOpenBook(book.id) },
+                  onEditClick = { bookPendingEdit = book },
+                  onToggleFavorite = { viewModel.toggleBookFavorite(book) },
                   onDeleteClick = { bookPendingDelete = book },
                   modifier =
                     Modifier
@@ -679,6 +850,66 @@ fun LibraryScreen(
         showGoalDialog = false
       },
       onDismiss = { showGoalDialog = false },
+    )
+  }
+
+  if (showCreateShelfDialog) {
+    CreateShelfDialog(
+      onCreate = { shelfName ->
+        viewModel.createShelf(shelfName)
+        showCreateShelfDialog = false
+      },
+      onDismiss = { showCreateShelfDialog = false },
+    )
+  }
+
+  shelfPendingDelete?.let { shelf ->
+    AlertDialog(
+      onDismissRequest = { shelfPendingDelete = null },
+      containerColor = MaterialTheme.colorScheme.surface,
+      title = { Text(strings.deleteShelfTitle, color = MaterialTheme.colorScheme.onSurface) },
+      text = { Text(strings.deleteShelfBody(shelf.name), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            viewModel.deleteShelf(shelf)
+            shelfPendingDelete = null
+          }
+        ) {
+          Text(strings.remove, color = MaterialTheme.colorScheme.error)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { shelfPendingDelete = null }) {
+          Text(strings.cancel, color = MaterialTheme.colorScheme.primary)
+        }
+      },
+    )
+  }
+
+  bookPendingEdit?.let { target ->
+    EditBookMetadataDialog(
+      book = target,
+      shelves = uiState.shelves,
+      assignedShelfIds = uiState.bookShelfMap[target.id].orEmpty(),
+      isFa = isFa,
+      onToggleShelf = { shelfId, assign ->
+        viewModel.toggleBookShelf(target.id, shelfId, assign)
+      },
+      onCreateShelfQuick = { showCreateShelfDialog = true },
+      onSave = { title, author, status, isFavorite, pickedUri, resetCover ->
+        viewModel.updateBookMetadataAndCover(
+          book = target,
+          newTitle = title,
+          newAuthor = author,
+          newStatus = status,
+          isFavorite = isFavorite,
+          pickedCoverUri = pickedUri,
+          resetCover = resetCover,
+        )
+        bookPendingEdit = null
+      },
+      onDismiss = { bookPendingEdit = null },
     )
   }
 
@@ -1056,7 +1287,16 @@ private fun EmptyLibraryView(
       )
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(10.dp))
+
+    Text(
+      text = strings.importFormatsHint,
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.primary,
+      textAlign = TextAlign.Center,
+    )
+
+    Spacer(modifier = Modifier.height(14.dp))
 
     OutlinedButton(
       onClick = onLoadSamplesClick,
@@ -1191,10 +1431,16 @@ private fun RecentBookRailCard(
 @Composable
 private fun BookGridCard(
   book: BookEntity,
+  isFa: Boolean,
   onClick: () -> Unit,
+  onEditClick: () -> Unit,
+  onToggleFavorite: () -> Unit,
   onDeleteClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
+  var showCardMenu by remember { mutableStateOf(false) }
+
   Surface(
     shape = RoundedCornerShape(18.dp),
     color = MaterialTheme.colorScheme.surface,
@@ -1211,23 +1457,79 @@ private fun BookGridCard(
           format = book.bookFormat(),
           modifier = Modifier.align(Alignment.TopStart).padding(7.dp),
         )
-        Surface(
-          shape = CircleShape,
-          color = Color.Black.copy(alpha = 0.48f),
-          modifier =
-            Modifier
-              .align(Alignment.TopEnd)
-              .padding(6.dp)
-              .size(28.dp)
-              .clip(CircleShape)
-              .clickable(onClick = onDeleteClick),
-        ) {
-          Box(contentAlignment = Alignment.Center) {
-            Icon(
-              imageVector = Icons.Rounded.DeleteOutline,
-              contentDescription = "Remove ${book.title}",
-              tint = Color.White,
-              modifier = Modifier.size(16.dp),
+        if (book.isFavorite) {
+          Surface(
+            shape = CircleShape,
+            color = Color.Black.copy(alpha = 0.50f),
+            modifier = Modifier.align(Alignment.BottomStart).padding(7.dp).size(24.dp),
+          ) {
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Rounded.Favorite,
+                contentDescription = strings.favoriteLabel,
+                tint = Color(0xFFFF6B81),
+                modifier = Modifier.size(14.dp),
+              )
+            }
+          }
+        }
+        Box(modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+          Surface(
+            shape = CircleShape,
+            color = Color.Black.copy(alpha = 0.48f),
+            modifier =
+              Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .clickable { showCardMenu = true }
+                .testTag("book_menu_${book.id}"),
+          ) {
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Rounded.MoreVert,
+                contentDescription = "Book options",
+                tint = Color.White,
+                modifier = Modifier.size(16.dp),
+              )
+            }
+          }
+          DropdownMenu(
+            expanded = showCardMenu,
+            onDismissRequest = { showCardMenu = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+          ) {
+            DropdownMenuItem(
+              leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+              text = { Text(strings.editBookAction) },
+              onClick = {
+                showCardMenu = false
+                onEditClick()
+              },
+            )
+            DropdownMenuItem(
+              leadingIcon = {
+                Icon(
+                  imageVector = if (book.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                  contentDescription = null,
+                )
+              },
+              text = {
+                Text(if (book.isFavorite) strings.removeFavoriteAction else strings.addFavoriteAction)
+              },
+              onClick = {
+                showCardMenu = false
+                onToggleFavorite()
+              },
+            )
+            DropdownMenuItem(
+              leadingIcon = {
+                Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+              },
+              text = { Text(strings.remove, color = MaterialTheme.colorScheme.error) },
+              onClick = {
+                showCardMenu = false
+                onDeleteClick()
+              },
             )
           }
         }
@@ -1248,13 +1550,31 @@ private fun BookGridCard(
 
       Spacer(modifier = Modifier.height(2.dp))
 
-      Text(
-        text = book.author,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-      )
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          text = book.author,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.weight(1f),
+        )
+        val st = book.status()
+        if (st != ReadingStatus.UNREAD) {
+          Spacer(modifier = Modifier.width(4.dp))
+          Text(
+            text = if (isFa) st.faLabel else st.label,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+          )
+        }
+      }
 
       Spacer(modifier = Modifier.height(8.dp))
 
@@ -1271,10 +1591,16 @@ private fun BookGridCard(
 @Composable
 private fun BookListRow(
   book: BookEntity,
+  isFa: Boolean,
   onClick: () -> Unit,
+  onEditClick: () -> Unit,
+  onToggleFavorite: () -> Unit,
   onDeleteClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalAppStrings.current
+  var showRowMenu by remember { mutableStateOf(false) }
+
   Surface(
     shape = RoundedCornerShape(16.dp),
     color = MaterialTheme.colorScheme.surface,
@@ -1293,14 +1619,30 @@ private fun BookListRow(
       Spacer(modifier = Modifier.width(14.dp))
 
       Column(modifier = Modifier.weight(1f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
           FormatPill(format = book.bookFormat())
-          Spacer(modifier = Modifier.width(8.dp))
           Text(
             text = "${book.progressPercent.roundToInt()}%",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
           )
+          val st = book.status()
+          Text(
+            text = if (isFa) st.faLabel else st.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+          if (book.isFavorite) {
+            Icon(
+              imageVector = Icons.Rounded.Favorite,
+              contentDescription = strings.favoriteLabel,
+              tint = Color(0xFFFF6B81),
+              modifier = Modifier.size(13.dp),
+            )
+          }
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -1321,15 +1663,56 @@ private fun BookListRow(
         )
       }
 
-      IconButton(
-        onClick = onDeleteClick,
-        modifier = Modifier.minimumInteractiveComponentSize(),
-      ) {
-        Icon(
-          imageVector = Icons.Rounded.DeleteOutline,
-          contentDescription = "Remove ${book.title}",
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+      Box {
+        IconButton(
+          onClick = { showRowMenu = true },
+          modifier = Modifier.minimumInteractiveComponentSize(),
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.MoreVert,
+            contentDescription = "Book options",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        DropdownMenu(
+          expanded = showRowMenu,
+          onDismissRequest = { showRowMenu = false },
+          containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+          DropdownMenuItem(
+            leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+            text = { Text(strings.editBookAction) },
+            onClick = {
+              showRowMenu = false
+              onEditClick()
+            },
+          )
+          DropdownMenuItem(
+            leadingIcon = {
+              Icon(
+                imageVector = if (book.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                contentDescription = null,
+              )
+            },
+            text = {
+              Text(if (book.isFavorite) strings.removeFavoriteAction else strings.addFavoriteAction)
+            },
+            onClick = {
+              showRowMenu = false
+              onToggleFavorite()
+            },
+          )
+          DropdownMenuItem(
+            leadingIcon = {
+              Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            },
+            text = { Text(strings.remove, color = MaterialTheme.colorScheme.error) },
+            onClick = {
+              showRowMenu = false
+              onDeleteClick()
+            },
+          )
+        }
       }
     }
   }

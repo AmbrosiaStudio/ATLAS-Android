@@ -327,4 +327,147 @@ class ExampleRobolectricTest {
       db.close()
     }
   }
+
+  @Test
+  fun `text formats converter parses txt and markdown with frontmatter chapters and toc`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val converter = com.example.engine.formats.TextFormatsConverter(context)
+
+    val txtFile = File.createTempFile("sample_notes", ".txt", context.cacheDir)
+    val mdFile = File.createTempFile("sample_essay", ".md", context.cacheDir)
+    try {
+      txtFile.writeText(
+        """
+        Chapter 1: Morning Calm
+        The morning breeze carries quiet clarity across the desk.
+
+        Chapter 2: Evening Notes
+        A calm mind reads slowly and retains every nuance.
+        """.trimIndent()
+      )
+      val txtBook =
+        converter.loadBook(txtFile, com.example.model.BookFormat.TXT, "txt-test-1", "Notes").getOrThrow()
+      assertEquals(2, txtBook.chapters.size)
+      assertEquals("Chapter 1: Morning Calm", txtBook.toc.first().title)
+
+      mdFile.writeText(
+        """
+        ---
+        title: Calm Markdown Essay
+        author: AmirSenpai
+        ---
+
+        # Introduction
+        Welcome to **slow** reading.
+
+        - First principle
+        - Second principle
+
+        # Deeper Practice
+        > Attention is the rarest treasure.
+        """.trimIndent()
+      )
+      val mdMeta =
+        converter.extractMetadataAndCover(mdFile, com.example.model.BookFormat.MD, "md-test-1", "Fallback")
+          .getOrThrow()
+      assertEquals("Calm Markdown Essay", mdMeta.title)
+      assertEquals("AmirSenpai", mdMeta.author)
+      assertEquals(2, mdMeta.totalUnits)
+
+      val mdLoaded =
+        converter.loadBook(mdFile, com.example.model.BookFormat.MD, "md-test-1", "Fallback").getOrThrow()
+      assertEquals(2, mdLoaded.chapters.size)
+      assertEquals("Introduction", mdLoaded.toc[0].title)
+      assertEquals("Deeper Practice", mdLoaded.toc[1].title)
+    } finally {
+      txtFile.delete()
+      mdFile.delete()
+    }
+  }
+
+  @Test
+  fun `cbz engine sorts pages numerically and inspects comic archive cover`() = runTest {
+    val sorted =
+      listOf("page10.jpg", "page2.jpg", "page1.jpg", "cover.png").sortedWith(
+        com.example.engine.cbz.CbzEngine::naturalCompare
+      )
+    assertEquals(listOf("cover.png", "page1.jpg", "page2.jpg", "page10.jpg"), sorted)
+
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val engine = com.example.engine.cbz.CbzEngine(context)
+    val cbzFile = File.createTempFile("comic_test", ".cbz", context.cacheDir)
+    try {
+      val bmp = android.graphics.Bitmap.createBitmap(120, 180, android.graphics.Bitmap.Config.ARGB_8888)
+      val pngBytes =
+        java.io.ByteArrayOutputStream().also { out ->
+          bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out)
+        }.toByteArray()
+      bmp.recycle()
+
+      java.util.zip.ZipOutputStream(java.io.FileOutputStream(cbzFile)).use { zos ->
+        listOf("02_panel.png", "10_end.png", "01_cover.png").forEach { name ->
+          zos.putNextEntry(java.util.zip.ZipEntry(name))
+          zos.write(pngBytes)
+          zos.closeEntry()
+        }
+      }
+
+      val (count, coverPath) = engine.inspectAndExtractCover(cbzFile, "cbz-test-1").getOrThrow()
+      assertEquals(3, count)
+      assertNotNull(coverPath)
+      assertTrue(File(coverPath!!).exists())
+    } finally {
+      cbzFile.delete()
+    }
+  }
+
+  @Test
+  fun `room v3 manages custom shelves book metadata favorites and streak reminder delay`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      val book =
+        BookEntity(
+          id = "shelf-book-1",
+          title = "Original Title",
+          author = "Original Author",
+          format = "FB2",
+          filePath = "/tmp/book.fb2",
+          coverPath = null,
+          fileSizeBytes = 512L,
+          totalUnits = 6,
+        )
+      dao.upsertBook(book)
+      dao.updateBookMetadata(
+        bookId = "shelf-book-1",
+        title = "Edited Title",
+        author = "Edited Author",
+        readingStatus = com.example.model.ReadingStatus.READING.name,
+        isFavorite = true,
+        coverPath = "/tmp/custom_cover.jpg",
+      )
+
+      val updated = dao.getBookById("shelf-book-1")
+      assertNotNull(updated)
+      assertEquals("Edited Title", updated!!.title)
+      assertEquals("Edited Author", updated.author)
+      assertEquals(com.example.model.ReadingStatus.READING, updated.status())
+      assertTrue(updated.isFavorite)
+
+      val shelfId = dao.insertShelf(com.example.data.local.ShelfEntity(name = "Philosophy"))
+      dao.insertBookShelfRef(com.example.data.local.BookShelfCrossRef(bookId = "shelf-book-1", shelfId = shelfId))
+      assertEquals(1, dao.observeAllShelves().first().size)
+      assertEquals(1, dao.observeAllBookShelfRefs().first().size)
+
+      dao.deleteShelfById(shelfId)
+      assertEquals(0, dao.observeAllShelves().first().size)
+      assertEquals(0, dao.observeAllBookShelfRefs().first().size)
+    } finally {
+      db.close()
+    }
+
+    val delayMs = com.example.notifications.StreakReminderScheduler.computeDelayMillisUntil(20, 30)
+    assertTrue(delayMs in 60_000L..86_460_000L)
+  }
 }

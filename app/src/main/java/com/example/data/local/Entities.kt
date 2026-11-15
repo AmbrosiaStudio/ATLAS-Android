@@ -5,25 +5,29 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.model.BookFormat
+import com.example.model.ReadingStatus
 
 @Entity(tableName = "books")
 data class BookEntity(
   @PrimaryKey val id: String,
   val title: String,
   val author: String,
-  val format: String, // "EPUB" or "PDF"
+  val format: String, // EPUB, PDF, TXT, MD, FB2, CBZ
   val filePath: String,
   val coverPath: String?,
   val fileSizeBytes: Long,
-  val totalUnits: Int, // Chapter count for EPUB, page count for PDF
-  val currentChapterOrPage: Int = 0, // 0-indexed chapter for EPUB, 0-indexed page for PDF
-  val currentScrollFraction: Float = 0f, // 0f..1f within current chapter for EPUB
+  val totalUnits: Int, // Chapter/section count or page count
+  val currentChapterOrPage: Int = 0, // 0-indexed chapter or page
+  val currentScrollFraction: Float = 0f, // 0f..1f within current chapter
   val progressPercent: Float = 0f, // 0f..100f overall progress
   val lastOpenedAt: Long = 0L,
   val addedAt: Long = System.currentTimeMillis(),
+  val readingStatus: String = ReadingStatus.UNREAD.name,
+  val isFavorite: Boolean = false,
 ) {
-  fun bookFormat(): BookFormat =
-    if (format.equals("PDF", ignoreCase = true)) BookFormat.PDF else BookFormat.EPUB
+  fun bookFormat(): BookFormat = BookFormat.fromString(format)
+
+  fun status(): ReadingStatus = ReadingStatus.fromString(readingStatus)
 }
 
 @Entity(
@@ -97,5 +101,36 @@ data class BookProgressPointEntity(
   val pageOrUnitIndex: Int,
   val recordedAt: Long = System.currentTimeMillis(),
   val dateKey: String,
+)
+
+@Entity(tableName = "shelves")
+data class ShelfEntity(
+  @PrimaryKey(autoGenerate = true) val id: Long = 0,
+  val name: String,
+  val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+  tableName = "book_shelf_cross_ref",
+  primaryKeys = ["bookId", "shelfId"],
+  foreignKeys = [
+    ForeignKey(
+      entity = BookEntity::class,
+      parentColumns = ["id"],
+      childColumns = ["bookId"],
+      onDelete = ForeignKey.CASCADE,
+    ),
+    ForeignKey(
+      entity = ShelfEntity::class,
+      parentColumns = ["id"],
+      childColumns = ["shelfId"],
+      onDelete = ForeignKey.CASCADE,
+    ),
+  ],
+  indices = [Index("bookId"), Index("shelfId")],
+)
+data class BookShelfCrossRef(
+  val bookId: String,
+  val shelfId: Long,
 )
 

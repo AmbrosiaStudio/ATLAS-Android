@@ -1,8 +1,39 @@
 package com.example.model
 
-enum class BookFormat {
-  EPUB,
-  PDF,
+enum class BookFormat(
+  val extension: String,
+  val isReflowableText: Boolean,
+) {
+  EPUB("epub", true),
+  PDF("pdf", false),
+  TXT("txt", true),
+  MD("md", true),
+  FB2("fb2", true),
+  CBZ("cbz", false);
+
+  companion object {
+    fun fromString(raw: String): BookFormat =
+      entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: EPUB
+  }
+}
+
+enum class ReadingStatus(val label: String, val faLabel: String) {
+  UNREAD("Unread", "خوانده‌نشده"),
+  READING("Reading", "در حال مطالعه"),
+  FINISHED("Finished", "تکمیل‌شده");
+
+  companion object {
+    fun fromString(raw: String): ReadingStatus =
+      entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: UNREAD
+  }
+}
+
+enum class LibraryStatusFilter(val label: String, val faLabel: String) {
+  ALL("All", "همه"),
+  READING("Reading", "در حال مطالعه"),
+  UNREAD("Unread", "خوانده‌نشده"),
+  FINISHED("Finished", "تکمیل‌شده"),
+  FAVORITES("Favorites", "علاقه‌مندی‌ها"),
 }
 
 enum class AppLanguage(
@@ -142,6 +173,9 @@ data class ReaderSettings(
   val todayReadingSeconds: Int = 0,
   val lastReadingDateKey: String = "",
   val totalReadingSecondsAllTime: Long = 0L,
+  val streakReminderEnabled: Boolean = false,
+  val streakReminderHour: Int = 20,
+  val streakReminderMinute: Int = 0,
 )
 
 data class EpubChapter(

@@ -287,7 +287,7 @@ fun ThemeBrightnessSheet(
         )
       }
 
-      if (bookFormat == BookFormat.PDF) {
+      if (!bookFormat.isReflowableText) {
         Row(
           modifier = Modifier.fillMaxWidth(),
           verticalAlignment = Alignment.CenterVertically,
@@ -375,7 +375,7 @@ fun TypographySettingsSheet(
         horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Text(
-          text = if (bookFormat == BookFormat.EPUB) strings.typographyAndLayout else strings.pageDisplay,
+          text = if (bookFormat.isReflowableText) strings.typographyAndLayout else strings.pageDisplay,
           style = MaterialTheme.typography.titleMedium,
           color = palette.text,
         )
@@ -489,7 +489,7 @@ fun TypographySettingsSheet(
         }
       }
 
-      if (bookFormat == BookFormat.PDF) {
+      if (!bookFormat.isReflowableText) {
         Text(
           text = "Pinch with two fingers or double-tap any page to zoom in and pan smoothly.",
           style = MaterialTheme.typography.bodyMedium,
@@ -1002,8 +1002,8 @@ fun IndexAndToolsSheet(
 
       when (selectedTab) {
         0 -> {
-          // Table of Contents or PDF Pages
-          if (bookFormat == BookFormat.EPUB) {
+          // Table of Contents or Fixed Pages
+          if (bookFormat.isReflowableText) {
             if (tocItems.isEmpty()) {
               EmptyTabMessage("No table of contents entries in this book.", palette)
             } else {

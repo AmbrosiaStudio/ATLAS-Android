@@ -108,6 +108,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.engine.cbz.CbzReaderView
 import com.example.engine.epub.EpubReaderView
 import com.example.engine.pdf.PdfReaderView
 import com.example.engine.translate.TargetLanguageOption
@@ -289,17 +290,33 @@ fun ReaderScreen(
     when (uiState.documentState) {
       is ReaderDocumentState.EpubReady ->
         uiState.currentChapter?.title ?: "Section ${uiState.currentChapterOrPage + 1}"
-      is ReaderDocumentState.PdfReady ->
+      is ReaderDocumentState.PdfReady, is ReaderDocumentState.CbzReady ->
         "Page ${uiState.currentChapterOrPage + 1} / ${uiState.totalUnits}"
       else -> strings.preparingBook
     }
 
   Box(modifier = Modifier.fillMaxSize().background(palette.background)) {
-    // Layer 1a: Haze source backing surface (and full-bleed PdfReaderView for real-time PDF blur)
+    // Layer 1a: Haze source backing surface (PDF or CBZ view)
     val pdfDoc = uiState.documentState as? ReaderDocumentState.PdfReady
     if (pdfDoc != null) {
       PdfReaderView(
         session = pdfDoc.session,
+        currentPage = uiState.currentChapterOrPage,
+        jumpToPageSignal = uiState.jumpToPdfPageSignal,
+        settings = uiState.settings,
+        palette = palette,
+        hazeState = hazeState,
+        externalPageStepSignal = externalPageStepSignal,
+        onPageChanged = viewModel::onPdfPageChanged,
+        onUnitViewed = viewModel::onReadingUnitViewed,
+        onContentTap = viewModel::toggleControls,
+        modifier = Modifier.fillMaxSize(),
+      )
+    }
+    val cbzDoc = uiState.documentState as? ReaderDocumentState.CbzReady
+    if (cbzDoc != null) {
+      CbzReaderView(
+        session = cbzDoc.session,
         currentPage = uiState.currentChapterOrPage,
         jumpToPageSignal = uiState.jumpToPdfPageSignal,
         settings = uiState.settings,
@@ -395,7 +412,7 @@ fun ReaderScreen(
         }
       }
 
-      is ReaderDocumentState.PdfReady -> Unit
+      is ReaderDocumentState.PdfReady, is ReaderDocumentState.CbzReady -> Unit
     }
 
     // Optional Tactile Paper Texture overlay (non-touch-blocking)
@@ -681,7 +698,7 @@ fun ReaderScreen(
           isSearching = uiState.isSearching,
           palette = palette,
           onSelectChapterOrPage = { idx, frac, anchor ->
-            if (format == BookFormat.PDF) {
+            if (!format.isReflowableText) {
               viewModel.jumpToPdfPage(idx)
               viewModel.closeSheet()
             } else {

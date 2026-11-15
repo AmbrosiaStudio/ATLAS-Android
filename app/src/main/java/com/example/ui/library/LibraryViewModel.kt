@@ -5,11 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.BookEntity
+import com.example.data.local.ShelfEntity
 import com.example.data.repository.LibraryRepository
 import com.example.data.repository.ReaderRepository
 import com.example.model.LibraryLayoutMode
 import com.example.model.LibrarySortOrder
+import com.example.model.LibraryStatusFilter
 import com.example.model.ReaderSettings
+import com.example.model.ReadingStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,9 +23,14 @@ import kotlinx.coroutines.launch
 
 data class LibraryUiState(
   val books: List<BookEntity> = emptyList(),
+  val totalLibraryCount: Int = 0,
   val recentBooks: List<BookEntity> = emptyList(),
   val continueBook: BookEntity? = null,
   val lastSessionBookId: String? = null,
+  val shelves: List<ShelfEntity> = emptyList(),
+  val bookShelfMap: Map<String, Set<Long>> = emptyMap(),
+  val selectedStatusFilter: LibraryStatusFilter = LibraryStatusFilter.ALL,
+  val selectedShelfId: Long? = null,
   val searchQuery: String = "",
   val layoutMode: LibraryLayoutMode = LibraryLayoutMode.GRID,
   val sortOrder: LibrarySortOrder = LibrarySortOrder.RECENT,
@@ -44,6 +52,9 @@ data class LibraryUiState(
 
   val isDailyGoalMet: Boolean
     get() = todayReadingSeconds >= dailyGoalMinutes * 60
+
+  val hasActiveFilterOrSearch: Boolean
+    get() = searchQuery.isNotBlank() || selectedStatusFilter != LibraryStatusFilter.ALL || selectedShelfId != null
 }
 
 class LibraryViewModel(
@@ -52,24 +63,69 @@ class LibraryViewModel(
 ) : ViewModel() {
 
   private val searchQuery = MutableStateFlow("")
+  private val statusFilter = MutableStateFlow(LibraryStatusFilter.ALL)
+  private val selectedShelfId = MutableStateFlow<Long?>(null)
   private val isImporting = MutableStateFlow(false)
   private val errorMessage = MutableStateFlow<String?>(null)
   private val infoMessage = MutableStateFlow<String?>(null)
 
+  private data class FilterState(
+    val query: String,
+    val status: LibraryStatusFilter,
+    val shelfId: Long?,
+  )
+
+  private data class StatusTuple(
+    val importing: Boolean,
+    val error: String?,
+    val info: String?,
+  )
+
   val uiState: StateFlow<LibraryUiState> =
     combine(
       libraryRepository.booksFlow,
+      libraryRepository.shelvesFlow,
+      libraryRepository.bookShelfRefsFlow,
       readerRepository.settingsFlow,
-      readerRepository.lastOpenedBookIdFlow,
-      searchQuery,
-      combine(isImporting, errorMessage, infoMessage) { imp, err, info -> Triple(imp, err, info) },
-    ) { allBooks, settings, lastSessionId, query, status ->
-      val filtered =
-        if (query.isBlank()) {
+      combine(
+        readerRepository.lastOpenedBookIdFlow,
+        combine(searchQuery, statusFilter, selectedShelfId) { q, st, sh -> FilterState(q, st, sh) },
+        combine(isImporting, errorMessage, infoMessage) { imp, err, info -> StatusTuple(imp, err, info) },
+      ) { lastId, filters, status -> Triple(lastId, filters, status) },
+    ) { allBooks, shelves, shelfRefs, settings, aux ->
+      val lastSessionId = aux.first
+      val filters = aux.second
+      val status = aux.third
+
+      val shelfMap = mutableMapOf<String, MutableSet<Long>>()
+      shelfRefs.forEach { ref ->
+        shelfMap.getOrPut(ref.bookId) { mutableSetOf() }.add(ref.shelfId)
+      }
+      val activeShelfId =
+        filters.shelfId?.takeIf { id -> shelves.any { it.id == id } }
+
+      val afterShelf =
+        if (activeShelfId == null) {
           allBooks
         } else {
-          val q = query.trim()
-          allBooks.filter {
+          allBooks.filter { shelfMap[it.id]?.contains(activeShelfId) == true }
+        }
+
+      val afterStatus =
+        when (filters.status) {
+          LibraryStatusFilter.ALL -> afterShelf
+          LibraryStatusFilter.READING -> afterShelf.filter { it.status() == ReadingStatus.READING }
+          LibraryStatusFilter.UNREAD -> afterShelf.filter { it.status() == ReadingStatus.UNREAD }
+          LibraryStatusFilter.FINISHED -> afterShelf.filter { it.status() == ReadingStatus.FINISHED }
+          LibraryStatusFilter.FAVORITES -> afterShelf.filter { it.isFavorite }
+        }
+
+      val filtered =
+        if (filters.query.isBlank()) {
+          afterStatus
+        } else {
+          val q = filters.query.trim()
+          afterStatus.filter {
             it.title.contains(q, ignoreCase = true) || it.author.contains(q, ignoreCase = true)
           }
         }
@@ -95,19 +151,24 @@ class LibraryViewModel(
 
       LibraryUiState(
         books = sorted,
+        totalLibraryCount = allBooks.size,
         recentBooks = recent,
         continueBook = continueBook,
         lastSessionBookId = lastSessionId?.takeIf { id -> allBooks.any { it.id == id } },
-        searchQuery = query,
+        shelves = shelves,
+        bookShelfMap = shelfMap,
+        selectedStatusFilter = filters.status,
+        selectedShelfId = activeShelfId,
+        searchQuery = filters.query,
         layoutMode = settings.libraryLayout,
         sortOrder = settings.librarySortOrder,
         settings = settings,
         dailyGoalMinutes = settings.dailyGoalMinutes,
         todayReadingSeconds = todaySec,
         totalReadingMinutesAllTime = (settings.totalReadingSecondsAllTime / 60L).toInt(),
-        isImporting = status.first,
-        errorMessage = status.second,
-        infoMessage = status.third,
+        isImporting = status.importing,
+        errorMessage = status.error,
+        infoMessage = status.info,
       )
     }.stateIn(
       scope = viewModelScope,
@@ -117,6 +178,83 @@ class LibraryViewModel(
 
   fun setSearchQuery(query: String) {
     searchQuery.value = query
+  }
+
+  fun setStatusFilter(filter: LibraryStatusFilter) {
+    statusFilter.value = filter
+  }
+
+  fun selectShelfFilter(shelfId: Long?) {
+    selectedShelfId.value = if (selectedShelfId.value == shelfId) null else shelfId
+  }
+
+  fun createShelf(name: String) {
+    val clean = name.trim()
+    if (clean.isBlank()) return
+    viewModelScope.launch {
+      val id = libraryRepository.createShelf(clean)
+      if (id != null && id > 0L) {
+        infoMessage.value = "Created shelf \"$clean\""
+      }
+    }
+  }
+
+  fun deleteShelf(shelf: ShelfEntity) {
+    viewModelScope.launch {
+      if (selectedShelfId.value == shelf.id) {
+        selectedShelfId.value = null
+      }
+      libraryRepository.deleteShelf(shelf.id)
+      infoMessage.value = "Removed shelf \"${shelf.name}\""
+    }
+  }
+
+  fun toggleBookShelf(bookId: String, shelfId: Long, assign: Boolean) {
+    viewModelScope.launch {
+      libraryRepository.toggleBookShelf(bookId, shelfId, assign)
+    }
+  }
+
+  fun setBookReadingStatus(bookId: String, status: ReadingStatus) {
+    viewModelScope.launch {
+      libraryRepository.setReadingStatus(bookId, status)
+    }
+  }
+
+  fun toggleBookFavorite(book: BookEntity) {
+    viewModelScope.launch {
+      val next = !book.isFavorite
+      libraryRepository.toggleFavorite(book.id, next)
+    }
+  }
+
+  fun updateBookMetadataAndCover(
+    book: BookEntity,
+    newTitle: String,
+    newAuthor: String,
+    newStatus: ReadingStatus,
+    isFavorite: Boolean,
+    pickedCoverUri: Uri?,
+    resetCover: Boolean,
+  ) {
+    viewModelScope.launch {
+      libraryRepository
+        .updateBookMetadataAndCover(
+          book = book,
+          newTitle = newTitle,
+          newAuthor = newAuthor,
+          newStatus = newStatus,
+          isFavorite = isFavorite,
+          pickedCoverUri = pickedCoverUri,
+          resetCover = resetCover,
+        )
+        .onSuccess {
+          infoMessage.value = "Updated \"${newTitle.trim().ifBlank { book.title }}\""
+        }
+        .onFailure { err ->
+          errorMessage.value = err.message ?: "Unable to update book metadata."
+        }
+    }
   }
 
   fun toggleLayoutMode() {

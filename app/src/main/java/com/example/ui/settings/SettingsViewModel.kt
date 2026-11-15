@@ -15,6 +15,8 @@ import com.example.model.ReaderFontOption
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.notifications.StreakReminderScheduler
+import com.example.notifications.StreakReminderWorker
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -129,6 +131,76 @@ class SettingsViewModel(
 
   fun setPaperTextureEnabled(enabled: Boolean) {
     viewModelScope.launch { readerRepository.updateSettings { it.copy(paperTextureEnabled = enabled) } }
+  }
+
+  fun setStreakReminderEnabled(enabled: Boolean) {
+    viewModelScope.launch {
+      val current = uiState.value.settings
+      readerRepository.updateSettings { it.copy(streakReminderEnabled = enabled) }
+      if (enabled) {
+        StreakReminderScheduler.scheduleDaily(
+          context = context,
+          hour = current.streakReminderHour,
+          minute = current.streakReminderMinute,
+        )
+        val formattedTime = String.format("%02d:%02d", current.streakReminderHour, current.streakReminderMinute)
+        message.value =
+          if (current.appLanguage == AppLanguage.PERSIAN) {
+            "یادآور روزانه برای ساعت $formattedTime تنظیم شد."
+          } else {
+            "Daily streak reminder scheduled for $formattedTime."
+          }
+      } else {
+        StreakReminderScheduler.cancel(context)
+        message.value =
+          if (current.appLanguage == AppLanguage.PERSIAN) {
+            "یادآور روزانه غیرفعال شد."
+          } else {
+            "Daily streak reminder turned off."
+          }
+      }
+    }
+  }
+
+  fun setStreakReminderTime(hour: Int, minute: Int) {
+    val safeH = hour.coerceIn(0, 23)
+    val safeM = minute.coerceIn(0, 59)
+    viewModelScope.launch {
+      val current = uiState.value.settings
+      readerRepository.updateSettings {
+        it.copy(streakReminderHour = safeH, streakReminderMinute = safeM)
+      }
+      if (current.streakReminderEnabled) {
+        StreakReminderScheduler.scheduleDaily(context, safeH, safeM)
+      }
+      val formattedTime = String.format("%02d:%02d", safeH, safeM)
+      message.value =
+        if (current.appLanguage == AppLanguage.PERSIAN) {
+          "ساعت یادآور به $formattedTime تغییر یافت."
+        } else {
+          "Reminder time updated to $formattedTime."
+        }
+    }
+  }
+
+  fun sendTestStreakReminder() {
+    val current = uiState.value.settings
+    if (!StreakReminderWorker.hasNotificationPermission(context)) {
+      message.value =
+        if (current.appLanguage == AppLanguage.PERSIAN) {
+          "برای دریافت یادآورهای روزانه، مجوز اعلان را فعال کنید."
+        } else {
+          "Allow notification permission to receive daily streak reminders."
+        }
+      return
+    }
+    StreakReminderScheduler.triggerTestNow(context)
+    message.value =
+      if (current.appLanguage == AppLanguage.PERSIAN) {
+        "اعلان آزمایشی در حال ارسال است…"
+      } else {
+        "Sending test streak reminder notification…"
+      }
   }
 
   fun selectBuiltInFont(option: ReaderFontOption) {

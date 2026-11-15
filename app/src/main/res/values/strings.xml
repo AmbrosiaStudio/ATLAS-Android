@@ -23,4 +23,5 @@
     <string name="bookmarks_tab">Bookmarks</string>
     <string name="highlights_tab">Highlights</string>
     <string name="search_tab">Search</string>
+    <string name="widget_continue_description">Resume your current book and view today\'s reading goal.</string>
 </resources>

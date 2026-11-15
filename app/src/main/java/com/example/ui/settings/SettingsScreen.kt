@@ -1,8 +1,13 @@
 package com.example.ui.settings
 
+import android.Manifest
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -32,11 +37,13 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RecordVoiceOver
@@ -44,10 +51,12 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,12 +72,15 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +93,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.BuildConfig
 import com.example.model.AppLanguage
@@ -96,8 +109,11 @@ import com.example.ui.theme.NotoNaskhFontFamily
 import com.example.ui.theme.PlusJakartaSansFamily
 import com.example.ui.theme.VazirmatnFontFamily
 import com.example.ui.theme.toPalette
+import com.example.widget.PageNestContinueWidgetReceiver
 import java.io.File
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
   viewModel: SettingsViewModel,
@@ -108,9 +124,33 @@ fun SettingsScreen(
   val isFa = uiState.settings.appLanguage == AppLanguage.PERSIAN
   val context = LocalContext.current
   val snackbarHostState = remember { SnackbarHostState() }
+  val scope = rememberCoroutineScope()
 
   var showVoicePicker by remember { mutableStateOf(false) }
   var showChangelogDialog by remember { mutableStateOf(false) }
+  var showReminderTimeDialog by remember { mutableStateOf(false) }
+  var pendingNotificationAction by remember { mutableStateOf<String?>(null) }
+
+  val notificationPermissionLauncher =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+      val action = pendingNotificationAction
+      pendingNotificationAction = null
+      if (granted) {
+        when (action) {
+          "enable" -> viewModel.setStreakReminderEnabled(true)
+          "test" -> viewModel.sendTestStreakReminder()
+        }
+      } else {
+        viewModel.setStreakReminderEnabled(false)
+        scope.launch { snackbarHostState.showSnackbar(strings.reminderPermissionNeeded) }
+      }
+    }
+
+  val hasPostNotificationPermission: () -> Boolean = {
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+      ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+  }
 
   val fontPicker =
     rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -425,6 +465,174 @@ fun SettingsScreen(
                   checked = uiState.settings.pdfThemeFilterEnabled,
                   onCheckedChange = viewModel::setPdfThemeFilter,
                 )
+              }
+            }
+          }
+
+          // 1b. Daily Streak Reminders & Home Widget
+          item {
+            SettingsSectionLabel(strings.remindersSection)
+            SettingsGroupCard {
+              Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+              ) {
+                ToggleSettingRow(
+                  title = strings.streakReminderToggle,
+                  subtitle = strings.streakReminderSub,
+                  checked = uiState.settings.streakReminderEnabled,
+                  switchTestTag = "settings_streak_reminder_switch",
+                  onCheckedChange = { enabled ->
+                    if (enabled && !hasPostNotificationPermission() &&
+                      Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    ) {
+                      pendingNotificationAction = "enable"
+                      notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                      viewModel.setStreakReminderEnabled(enabled)
+                    }
+                  },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                val formattedReminderTime =
+                  String.format(
+                    "%02d:%02d",
+                    uiState.settings.streakReminderHour,
+                    uiState.settings.streakReminderMinute,
+                  )
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.AccessTime,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                      Text(
+                        text = strings.reminderTimeLabel,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                      )
+                      Text(
+                        text = formattedReminderTime,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                      )
+                    }
+                  }
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                      onClick = { showReminderTimeDialog = true },
+                      shape = RoundedCornerShape(12.dp),
+                      colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                      modifier = Modifier.testTag("settings_reminder_time_button"),
+                    ) {
+                      Text(formattedReminderTime, style = MaterialTheme.typography.labelMedium)
+                    }
+                    OutlinedButton(
+                      onClick = {
+                        if (!hasPostNotificationPermission() &&
+                          Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                        ) {
+                          pendingNotificationAction = "test"
+                          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                          viewModel.sendTestStreakReminder()
+                        }
+                      },
+                      shape = RoundedCornerShape(12.dp),
+                      colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                      modifier = Modifier.testTag("settings_test_reminder_button"),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.NotificationsActive,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                      )
+                      Spacer(modifier = Modifier.width(4.dp))
+                      Text(strings.testReminderAction, style = MaterialTheme.typography.labelMedium)
+                    }
+                  }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                val canPinWidget =
+                  remember(context) {
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                      runCatching {
+                        AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported
+                      }.getOrDefault(false)
+                  }
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                  Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.weight(1f),
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.Widgets,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.padding(top = 2.dp).size(20.dp),
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                      Text(
+                        text = strings.widgetSectionTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                      )
+                      Text(
+                        text = strings.widgetSectionSub,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      )
+                    }
+                  }
+                  if (canPinWidget && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(
+                      onClick = {
+                        runCatching {
+                          val manager = AppWidgetManager.getInstance(context)
+                          val provider =
+                            ComponentName(context, PageNestContinueWidgetReceiver::class.java)
+                          manager.requestPinAppWidget(provider, null, null)
+                        }
+                      },
+                      shape = RoundedCornerShape(12.dp),
+                      colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                      modifier = Modifier.testTag("settings_pin_widget_button"),
+                    ) {
+                      Text(
+                        text = if (isFa) "افزودن ویجت" else "Pin Widget",
+                        style = MaterialTheme.typography.labelMedium,
+                      )
+                    }
+                  }
+                }
               }
             }
           }
@@ -878,12 +1086,13 @@ fun SettingsScreen(
           )
           Text(
             text =
-              "• Added Reading Statistics Dashboard with interactive Daily Reading Time bar chart, Total Pages Read, active streak, and Current Book Progress Trend chart\n" +
-                "• Added Battery-Saver Reading Mode (caps display refresh at 60Hz, simplifies animations, and bypasses GPU blur shaders)\n" +
-                "• Added hardware Volume Key page turning (Volume Down / Up) for EPUB & PDF in Read mode\n" +
-                "• Added 2 new themes (Sage Mist & Night B&W) and tactile Paper Texture toggle for EPUB & PDF\n" +
-                "• Upgraded reader bottom & top bars to theme-responsive clear Liquid Glass and unified all typography/comfort settings inside TT\n" +
-                "• Book-style Page-by-Page & Vertical Scroll modes, Daily Reading Goal tracker, and full Persian (فارسی) RTL support",
+              "• Custom Shelves, Collections & Reading Status Filters (All, Reading, Unread, Finished, Favorites) on Library\n" +
+                "• Book Metadata & Cover Editor (edit title, author, reading status, shelves & replace cover via Android Photo Picker)\n" +
+                "• Expanded Format Support: read TXT, Markdown (.md), FictionBook (.fb2), and Comic Archives (.cbz) natively alongside EPUB & PDF\n" +
+                "• Daily Streak Reminders: opt-in WorkManager local notifications at your preferred time when today's goal is still open\n" +
+                "• Home Screen \"Continue Reading\" Glance Widget with cover art, progress percentage & direct deep-link\n" +
+                "• Reading Statistics Dashboard with interactive Daily Reading Time bar chart, Total Pages Read & Current Book Progress Trend chart\n" +
+                "• Battery-Saver Reading Mode (60Hz cap + reduced blur), Volume Key page turning, 6 themes, Paper Texture & Persian RTL support",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -906,6 +1115,48 @@ fun SettingsScreen(
       confirmButton = {
         TextButton(onClick = { showChangelogDialog = false }) {
           Text(strings.done, color = MaterialTheme.colorScheme.primary)
+        }
+      },
+    )
+  }
+
+  if (showReminderTimeDialog) {
+    val timePickerState =
+      rememberTimePickerState(
+        initialHour = uiState.settings.streakReminderHour,
+        initialMinute = uiState.settings.streakReminderMinute,
+        is24Hour = true,
+      )
+    AlertDialog(
+      onDismissRequest = { showReminderTimeDialog = false },
+      containerColor = MaterialTheme.colorScheme.surface,
+      titleContentColor = MaterialTheme.colorScheme.onSurface,
+      title = {
+        Text(
+          text = strings.setReminderTimeTitle,
+          fontFamily = LiterataFontFamily,
+          fontWeight = FontWeight.SemiBold,
+        )
+      },
+      text = {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+          TimePicker(state = timePickerState)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showReminderTimeDialog = false }) {
+          Text(strings.cancel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            viewModel.setStreakReminderTime(timePickerState.hour, timePickerState.minute)
+            showReminderTimeDialog = false
+          },
+          modifier = Modifier.testTag("confirm_reminder_time_button"),
+        ) {
+          Text(strings.saveGoal, color = MaterialTheme.colorScheme.primary)
         }
       },
     )
@@ -942,6 +1193,7 @@ private fun ToggleSettingRow(
   title: String,
   subtitle: String,
   checked: Boolean,
+  switchTestTag: String? = null,
   onCheckedChange: (Boolean) -> Unit,
 ) {
   Row(
@@ -964,6 +1216,7 @@ private fun ToggleSettingRow(
     Switch(
       checked = checked,
       onCheckedChange = onCheckedChange,
+      modifier = if (switchTestTag != null) Modifier.testTag(switchTestTag) else Modifier,
       colors =
         SwitchDefaults.colors(
           checkedThumbColor = MaterialTheme.colorScheme.onPrimary,

@@ -1,6 +1,7 @@
 package com.example
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -17,14 +18,18 @@ import com.example.ui.navigation.LocalVolumeKeyDispatcher
 import com.example.ui.navigation.PageNestNavGraph
 import com.example.ui.navigation.VolumeKeyDispatcher
 import com.example.ui.theme.PageNestTheme
+import com.example.widget.PageNestContinueWidget
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
   private val volumeKeyDispatcher = VolumeKeyDispatcher()
   private var interceptingVolumeUp = false
   private var interceptingVolumeDown = false
+  private val pendingWidgetBookId = MutableStateFlow<String?>(null)
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    handleDeepLinkIntent(intent)
     enableEdgeToEdge()
     val appContainer = (application as PageNestApplication).container
     setContent {
@@ -32,6 +37,7 @@ class MainActivity : ComponentActivity() {
         appContainer.readerRepository.settingsFlow.collectAsStateWithLifecycle(
           initialValue = ReaderSettings()
         )
+      val widgetBookId by pendingWidgetBookId.collectAsStateWithLifecycle()
       val view = LocalView.current
       val isDark = settings.themeMode.isDark
       LaunchedEffect(isDark) {
@@ -46,9 +52,27 @@ class MainActivity : ComponentActivity() {
           themeMode = settings.themeMode,
           appLanguage = settings.appLanguage,
         ) {
-          PageNestNavGraph(container = appContainer)
+          PageNestNavGraph(
+            container = appContainer,
+            widgetBookId = widgetBookId,
+            onConsumeWidgetBookId = { pendingWidgetBookId.value = null },
+          )
         }
       }
+    }
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleDeepLinkIntent(intent)
+  }
+
+  private fun handleDeepLinkIntent(intent: Intent?) {
+    val bookId = intent?.getStringExtra(PageNestContinueWidget.EXTRA_OPEN_BOOK_ID)
+    if (!bookId.isNullOrBlank()) {
+      pendingWidgetBookId.value = bookId
+      intent.removeExtra(PageNestContinueWidget.EXTRA_OPEN_BOOK_ID)
     }
   }
 

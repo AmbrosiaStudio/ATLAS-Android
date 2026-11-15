@@ -456,7 +456,7 @@ fun SignatureBottomDockOverlay(
                 LiquidModeChip(
                   label = strings.listenTab,
                   selected = readerMode == ReaderMode.LISTEN,
-                  enabled = bookFormat == BookFormat.EPUB,
+                  enabled = bookFormat.isReflowableText,
                   activeBg = activeSegmentBg,
                   activeFg = activeSegmentFg,
                   activeBorder = activeSegmentBorder,

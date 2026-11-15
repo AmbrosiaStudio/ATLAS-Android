@@ -934,7 +934,7 @@ private fun CurrentBookProgressTrendCard(
                 overflow = TextOverflow.Ellipsis,
               )
               val unitLabel =
-                if (selectedBook.bookFormat() == BookFormat.PDF) {
+                if (!selectedBook.bookFormat().isReflowableText) {
                   strings.pageOfTotal(selectedBook.currentChapterOrPage + 1, selectedBook.totalUnits.coerceAtLeast(1))
                 } else {
                   strings.chapterOfTotal(selectedBook.currentChapterOrPage + 1, selectedBook.totalUnits.coerceAtLeast(1))
