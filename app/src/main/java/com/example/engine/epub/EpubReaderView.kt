@@ -132,6 +132,7 @@ fun EpubReaderView(
   hazeState: HazeState,
   externalPageStepSignal: Pair<Int, Int> = 0 to 0,
   onScrollFractionChanged: (Float) -> Unit,
+  onUnitViewed: (String) -> Unit = {},
   onSelectionChanged: (SelectionAnchor) -> Unit,
   onContentTap: () -> Unit,
   onNavigateChapterDelta: (Int) -> Unit,
@@ -143,6 +144,7 @@ fun EpubReaderView(
   val textMeasurer = rememberTextMeasurer()
 
   val latestScrollCb by rememberUpdatedState(onScrollFractionChanged)
+  val latestUnitViewedCb by rememberUpdatedState(onUnitViewed)
   val latestSelectionCb by rememberUpdatedState(onSelectionChanged)
   val latestTapCb by rememberUpdatedState(onContentTap)
   val latestNavDeltaCb by rememberUpdatedState(onNavigateChapterDelta)
@@ -309,6 +311,9 @@ fun EpubReaderView(
           if (pageCount <= 1) 0f
           else pagerState.currentPage.toFloat() / (pageCount - 1).toFloat()
         latestScrollCb(frac.coerceIn(0f, 1f))
+        if (parsedChapter.blocks.isNotEmpty()) {
+          latestUnitViewedCb("epub_${chapter.index}_p${pagerState.currentPage}")
+        }
       }
 
       LaunchedEffect(externalPageStepSignal, chapter.localFilePath, pageCount) {
@@ -550,6 +555,8 @@ fun EpubReaderView(
       LaunchedEffect(scrollFraction, chapter.localFilePath) {
         if (blocks.isNotEmpty()) {
           latestScrollCb(scrollFraction)
+          val virtualStep = (scrollFraction * 8f).roundToInt()
+          latestUnitViewedCb("epub_${chapter.index}_s$virtualStep")
         }
       }
 

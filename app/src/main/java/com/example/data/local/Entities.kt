@@ -69,3 +69,33 @@ data class HighlightEntity(
   val colorHex: String,
   val createdAt: Long = System.currentTimeMillis(),
 )
+
+@Entity(tableName = "daily_reading_stats")
+data class DailyReadingStatEntity(
+  @PrimaryKey val dateKey: String,
+  val readingSeconds: Int = 0,
+  val pagesRead: Int = 0,
+  val lastUpdatedAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+  tableName = "book_progress_history",
+  foreignKeys = [
+    ForeignKey(
+      entity = BookEntity::class,
+      parentColumns = ["id"],
+      childColumns = ["bookId"],
+      onDelete = ForeignKey.CASCADE,
+    )
+  ],
+  indices = [Index("bookId"), Index("recordedAt")],
+)
+data class BookProgressPointEntity(
+  @PrimaryKey(autoGenerate = true) val id: Long = 0,
+  val bookId: String,
+  val progressPercent: Float,
+  val pageOrUnitIndex: Int,
+  val recordedAt: Long = System.currentTimeMillis(),
+  val dateKey: String,
+)
+

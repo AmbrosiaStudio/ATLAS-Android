@@ -258,4 +258,73 @@ class ExampleRobolectricTest {
     assertTrue(faParsed.isRtlDocument)
     assertEquals(2, faParsed.blocks.size)
   }
+
+  @Test
+  fun `reading stats dashboard repository tracks daily time total pages read and book progress trend`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      val book =
+        BookEntity(
+          id = "stats-book-1",
+          title = "The Enchiridion",
+          author = "Epictetus",
+          format = "EPUB",
+          filePath = "/tmp/enchiridion.epub",
+          coverPath = null,
+          fileSizeBytes = 2048L,
+          totalUnits = 10,
+        )
+      dao.upsertBook(book)
+
+      dao.incrementDailyStats(
+        dateKey = "2026-11-14",
+        deltaSeconds = 900,
+        deltaPages = 14,
+        nowMillis = 1000L,
+      )
+      dao.incrementDailyStats(
+        dateKey = "2026-11-15",
+        deltaSeconds = 600,
+        deltaPages = 9,
+        nowMillis = 2000L,
+      )
+      dao.incrementDailyStats(
+        dateKey = "2026-11-15",
+        deltaSeconds = 300,
+        deltaPages = 3,
+        nowMillis = 3000L,
+      )
+
+      val stats = dao.observeAllDailyStats().first()
+      assertEquals(2, stats.size)
+      assertEquals(900, stats[0].readingSeconds)
+      assertEquals(14, stats[0].pagesRead)
+      assertEquals(900, stats[1].readingSeconds)
+      assertEquals(12, stats[1].pagesRead)
+      assertEquals(26, stats.sumOf { it.pagesRead })
+
+      val repo =
+        com.example.data.repository.ReaderRepository(
+          dao = dao,
+          preferences = com.example.data.local.ReaderPreferencesDataStore(context),
+        )
+      repo.recordBookProgressSnapshot("stats-book-1", 10f, 1, forceInitialOnly = true)
+      repo.recordBookProgressSnapshot("stats-book-1", 25f, 2, forceInitialOnly = false)
+      repo.recordBookProgressSnapshot("stats-book-1", 25.1f, 2, forceInitialOnly = false) // below 0.4% threshold
+      repo.recordBookProgressSnapshot("stats-book-1", 48f, 4, forceInitialOnly = false)
+
+      val history = dao.observeBookProgressHistory("stats-book-1").first()
+      assertEquals(3, history.size)
+      assertEquals(10f, history[0].progressPercent, 0.01f)
+      assertEquals(25f, history[1].progressPercent, 0.01f)
+      assertEquals(48f, history[2].progressPercent, 0.01f)
+
+      dao.deleteBookById("stats-book-1")
+      assertEquals(0, dao.observeBookProgressHistory("stats-book-1").first().size)
+    } finally {
+      db.close()
+    }
+  }
 }

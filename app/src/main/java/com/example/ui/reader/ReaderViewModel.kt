@@ -184,6 +184,8 @@ class ReaderViewModel(
   private var translateJob: Job? = null
   private var readingTimerJob: Job? = null
   private var unflushedReadingSeconds: Int = 0
+  private val visitedPageKeysInSession = mutableSetOf<String>()
+  private var isSessionPageBaselineRecorded = false
   private var pdfSessionRef: PdfSession? = null
 
   private data class PositionState(
@@ -330,6 +332,15 @@ class ReaderViewModel(
                 )
               readerRepository.updateTotalUnits(book.id, parsed.chapters.size)
               docState.value = ReaderDocumentState.EpubReady(parsed, fontsDir)
+              val startPercent =
+                ((safeIndex + book.currentScrollFraction.coerceIn(0f, 1f)) /
+                    parsed.chapters.size.coerceAtLeast(1).toFloat()) * 100f
+              readerRepository.recordBookProgressSnapshot(
+                bookId = book.id,
+                progressPercent = startPercent,
+                pageOrUnitIndex = safeIndex,
+                forceInitialOnly = true,
+              )
               persistProgressNow()
               startReadingTimer()
             }
@@ -352,6 +363,15 @@ class ReaderViewModel(
                 )
               readerRepository.updateTotalUnits(book.id, session.pageCount)
               docState.value = ReaderDocumentState.PdfReady(session)
+              val startPercent =
+                if (session.pageCount <= 1) 100f
+                else (((safePage + 1).toFloat() / session.pageCount.toFloat()) * 100f)
+              readerRepository.recordBookProgressSnapshot(
+                bookId = book.id,
+                progressPercent = startPercent,
+                pageOrUnitIndex = safePage,
+                forceInitialOnly = true,
+              )
               persistProgressNow()
               startReadingTimer()
             }
@@ -448,6 +468,31 @@ class ReaderViewModel(
   fun onEpubScrollFractionChanged(fraction: Float) {
     positionState.update { it.copy(scrollFraction = fraction.coerceIn(0f, 1f), pendingAnchor = null) }
     scheduleProgressSave()
+  }
+
+  fun onReadingUnitViewed(unitKey: String) {
+    if (unitKey.isBlank()) return
+    if (!isSessionPageBaselineRecorded) {
+      isSessionPageBaselineRecorded = true
+      visitedPageKeysInSession.add(unitKey)
+      return
+    }
+    if (visitedPageKeysInSession.add(unitKey)) {
+      viewModelScope.launch {
+        readerRepository.recordPagesRead(1)
+      }
+    }
+  }
+
+  fun flushReadingStatsNow() {
+    viewModelScope.launch {
+      if (unflushedReadingSeconds > 0) {
+        val delta = unflushedReadingSeconds
+        unflushedReadingSeconds = 0
+        readerRepository.recordReadingTime(delta)
+      }
+      persistProgressSync()
+    }
   }
 
   fun onPdfPageChanged(page: Int) {
@@ -877,6 +922,12 @@ class ReaderViewModel(
       chapterOrPage = positionState.value.chapterOrPage,
       scrollFraction = positionState.value.scrollFraction,
       progressPercent = state.overallProgressPercent,
+    )
+    readerRepository.recordBookProgressSnapshot(
+      bookId = bookId,
+      progressPercent = state.overallProgressPercent,
+      pageOrUnitIndex = positionState.value.chapterOrPage,
+      forceInitialOnly = false,
     )
   }
 

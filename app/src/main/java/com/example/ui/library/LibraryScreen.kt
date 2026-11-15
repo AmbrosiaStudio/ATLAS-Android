@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -110,6 +111,7 @@ fun LibraryScreen(
   viewModel: LibraryViewModel,
   onOpenBook: (String) -> Unit,
   onOpenSettings: () -> Unit,
+  onOpenStats: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val strings = LocalAppStrings.current
@@ -300,6 +302,13 @@ fun LibraryScreen(
                     onDismissRequest = { showMoreMenu = false },
                     containerColor = MaterialTheme.colorScheme.surface,
                   ) {
+                    DropdownMenuItem(
+                      text = { Text(strings.readingStatsMenu, color = MaterialTheme.colorScheme.onSurface) },
+                      onClick = {
+                        showMoreMenu = false
+                        onOpenStats()
+                      },
+                    )
                     DropdownMenuItem(
                       text = { Text(strings.loadSamples, color = MaterialTheme.colorScheme.onSurface) },
                       onClick = {
@@ -551,6 +560,7 @@ fun LibraryScreen(
                   progressFraction = uiState.dailyGoalProgressFraction,
                   goalMet = uiState.isDailyGoalMet,
                   onEditGoal = { showGoalDialog = true },
+                  onOpenStats = onOpenStats,
                   modifier =
                     Modifier
                       .fillMaxWidth()
@@ -712,6 +722,7 @@ private fun DailyReadingGoalCard(
   progressFraction: Float,
   goalMet: Boolean,
   onEditGoal: () -> Unit,
+  onOpenStats: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val strings = LocalAppStrings.current
@@ -727,7 +738,7 @@ private fun DailyReadingGoalCard(
           if (goalMet) MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
           else MaterialTheme.colorScheme.outlineVariant,
       ),
-    modifier = modifier,
+    modifier = modifier.clip(RoundedCornerShape(20.dp)).clickable(onClick = onOpenStats),
   ) {
     Column(
       modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -764,6 +775,8 @@ private fun DailyReadingGoalCard(
               style = MaterialTheme.typography.titleSmall,
               fontWeight = FontWeight.SemiBold,
               color = MaterialTheme.colorScheme.onSurface,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
             )
             Text(
               text =
@@ -773,36 +786,68 @@ private fun DailyReadingGoalCard(
               color =
                 if (goalMet) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
             )
           }
         }
 
-        Surface(
-          shape = CircleShape,
-          color = MaterialTheme.colorScheme.surfaceVariant,
-          modifier =
-            Modifier
-              .clip(CircleShape)
-              .clickable(onClick = onEditGoal)
-              .testTag("edit_daily_goal_button"),
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-          Row(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+          Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier =
+              Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onOpenStats)
+                .testTag("library_stats_button"),
           ) {
-            Icon(
-              imageVector = Icons.Rounded.Tune,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(15.dp),
-            )
-            Text(
-              text = strings.adjustGoalAction,
-              style = MaterialTheme.typography.labelMedium,
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.BarChart,
+                contentDescription = strings.statsDashboardTitle,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(15.dp),
+              )
+              Text(
+                text = strings.openStatsAction,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1,
+                softWrap = false,
+              )
+            }
+          }
+
+          Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier =
+              Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onEditGoal)
+                .testTag("edit_daily_goal_button"),
+          ) {
+            Row(
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.Tune,
+                contentDescription = strings.adjustGoalAction,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(15.dp),
+              )
+            }
           }
         }
       }

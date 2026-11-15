@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Pause
@@ -103,6 +104,7 @@ fun SignatureBottomDockOverlay(
   onOpenThemeBrightness: () -> Unit,
   onOpenTypography: () -> Unit,
   onOpenContents: () -> Unit,
+  onOpenStats: () -> Unit = {},
   batterySaverEnabled: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
@@ -307,15 +309,53 @@ fun SignatureBottomDockOverlay(
                 }
                 val sessionMins = sessionElapsedSeconds / 60
                 val sessionSecs = sessionElapsedSeconds % 60
-                Text(
-                  text =
-                    "$dailyGoalSummary · ${String.format("%d:%02d", sessionMins, sessionSecs)}",
-                  style = MaterialTheme.typography.labelSmall,
-                  color = palette.accent,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                  modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
-                )
+                Row(
+                  modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                  Text(
+                    text =
+                      "$dailyGoalSummary · ${String.format("%d:%02d", sessionMins, sessionSecs)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = palette.accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                  )
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Surface(
+                    shape = CircleShape,
+                    color = palette.accent.copy(alpha = 0.14f),
+                    border = BorderStroke(0.75.dp, palette.accent.copy(alpha = 0.35f)),
+                    modifier =
+                      Modifier
+                        .clip(CircleShape)
+                        .clickable { onOpenStats() }
+                        .testTag("reader_stats_button"),
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.BarChart,
+                        contentDescription = null,
+                        tint = palette.accent,
+                        modifier = Modifier.size(13.dp),
+                      )
+                      Text(
+                        text = strings.openStatsAction,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = palette.accent,
+                        maxLines = 1,
+                        softWrap = false,
+                      )
+                    }
+                  }
+                }
                 var isDragging by remember { mutableStateOf(false) }
                 var dragValue by remember { mutableFloatStateOf(progressPercent) }
                 Slider(

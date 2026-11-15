@@ -27,11 +27,14 @@ import com.example.ui.reader.ReaderScreen
 import com.example.ui.reader.ReaderViewModel
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.settings.SettingsViewModel
+import com.example.ui.stats.ReadingStatsScreen
+import com.example.ui.stats.ReadingStatsViewModel
 import kotlinx.coroutines.flow.first
 
 const val ROUTE_LIBRARY = "library"
 const val ROUTE_READER = "reader/{bookId}"
 const val ROUTE_SETTINGS = "settings"
+const val ROUTE_STATS = "stats?bookId={bookId}"
 
 @Composable
 fun PageNestNavGraph(container: AppContainer) {
@@ -85,6 +88,11 @@ fun PageNestNavGraph(container: AppContainer) {
             launchSingleTop = true
           }
         },
+        onOpenStats = {
+          navController.navigate("stats") {
+            launchSingleTop = true
+          }
+        },
       )
     }
 
@@ -119,6 +127,11 @@ fun PageNestNavGraph(container: AppContainer) {
             launchSingleTop = true
           }
         },
+        onOpenStats = { targetBookId ->
+          navController.navigate("stats?bookId=$targetBookId") {
+            launchSingleTop = true
+          }
+        },
       )
     }
 
@@ -141,6 +154,42 @@ fun PageNestNavGraph(container: AppContainer) {
       SettingsScreen(
         viewModel = settingsViewModel,
         onNavigateBack = { navController.popBackStack() },
+      )
+    }
+
+    composable(
+      route = ROUTE_STATS,
+      arguments =
+        listOf(
+          navArgument("bookId") {
+            type = NavType.StringType
+            defaultValue = ""
+          }
+        ),
+      enterTransition = { slideInHorizontally { it / 8 } + fadeIn() },
+      exitTransition = { fadeOut() },
+      popEnterTransition = { fadeIn() },
+      popExitTransition = { slideOutHorizontally { it / 8 } + fadeOut() },
+    ) { backStackEntry ->
+      val initialBookId = backStackEntry.arguments?.getString("bookId")?.takeIf { it.isNotBlank() }
+      val statsViewModel: ReadingStatsViewModel =
+        viewModel(
+          key = "stats_${initialBookId ?: "library"}",
+          factory =
+            ReadingStatsViewModel.Factory(
+              initialBookId = initialBookId,
+              libraryRepository = container.libraryRepository,
+              readerRepository = container.readerRepository,
+            ),
+        )
+      ReadingStatsScreen(
+        viewModel = statsViewModel,
+        onNavigateBack = { navController.popBackStack() },
+        onOpenBook = { bookId ->
+          navController.navigate("reader/$bookId") {
+            launchSingleTop = true
+          }
+        },
       )
     }
   }

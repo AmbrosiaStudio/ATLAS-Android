@@ -878,7 +878,8 @@ fun SettingsScreen(
           )
           Text(
             text =
-              "• Added Battery-Saver Reading Mode (caps display refresh at 60Hz, simplifies animations, and bypasses GPU blur shaders)\n" +
+              "• Added Reading Statistics Dashboard with interactive Daily Reading Time bar chart, Total Pages Read, active streak, and Current Book Progress Trend chart\n" +
+                "• Added Battery-Saver Reading Mode (caps display refresh at 60Hz, simplifies animations, and bypasses GPU blur shaders)\n" +
                 "• Added hardware Volume Key page turning (Volume Down / Up) for EPUB & PDF in Read mode\n" +
                 "• Added 2 new themes (Sage Mist & Night B&W) and tactile Paper Texture toggle for EPUB & PDF\n" +
                 "• Upgraded reader bottom & top bars to theme-responsive clear Liquid Glass and unified all typography/comfort settings inside TT\n" +

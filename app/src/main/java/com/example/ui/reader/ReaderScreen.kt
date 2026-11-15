@@ -137,6 +137,7 @@ fun ReaderScreen(
   viewModel: ReaderViewModel,
   onNavigateBack: () -> Unit,
   onOpenSettings: () -> Unit,
+  onOpenStats: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val palette = uiState.settings.themeMode.toPalette()
@@ -306,6 +307,7 @@ fun ReaderScreen(
         hazeState = hazeState,
         externalPageStepSignal = externalPageStepSignal,
         onPageChanged = viewModel::onPdfPageChanged,
+        onUnitViewed = viewModel::onReadingUnitViewed,
         onContentTap = viewModel::toggleControls,
         modifier = Modifier.fillMaxSize(),
       )
@@ -384,6 +386,7 @@ fun ReaderScreen(
             hazeState = hazeState,
             externalPageStepSignal = externalPageStepSignal,
             onScrollFractionChanged = viewModel::onEpubScrollFractionChanged,
+            onUnitViewed = viewModel::onReadingUnitViewed,
             onSelectionChanged = viewModel::onSelectionChanged,
             onContentTap = viewModel::toggleControls,
             onNavigateChapterDelta = viewModel::navigateChapterDelta,
@@ -608,6 +611,13 @@ fun ReaderScreen(
       onOpenThemeBrightness = { viewModel.openSheet(ReaderSheetType.THEME_BRIGHTNESS) },
       onOpenTypography = { viewModel.openSheet(ReaderSheetType.TYPOGRAPHY) },
       onOpenContents = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 0) },
+      onOpenStats = {
+        viewModel.flushReadingStatsNow()
+        val id = uiState.book?.id
+        if (!id.isNullOrBlank()) {
+          onOpenStats(id)
+        }
+      },
       batterySaverEnabled = batterySaverEnabled,
       modifier = Modifier.align(Alignment.BottomCenter),
     )

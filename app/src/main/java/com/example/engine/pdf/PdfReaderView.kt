@@ -69,6 +69,7 @@ fun PdfReaderView(
   hazeState: HazeState,
   externalPageStepSignal: Pair<Int, Int> = 0 to 0,
   onPageChanged: (Int) -> Unit,
+  onUnitViewed: (String) -> Unit = {},
   onContentTap: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -105,11 +106,14 @@ fun PdfReaderView(
   LaunchedEffect(firstVisiblePage, settings.readingLayoutMode) {
     if (settings.readingLayoutMode == ReadingLayoutMode.SCROLL) {
       onPageChanged(firstVisiblePage)
+      onUnitViewed("pdf_p$firstVisiblePage")
     }
   }
   LaunchedEffect(pagerState.currentPage, settings.readingLayoutMode) {
     if (settings.readingLayoutMode == ReadingLayoutMode.PAGED) {
-      onPageChanged(pagerState.currentPage.coerceIn(0, safeCount - 1))
+      val pageIdx = pagerState.currentPage.coerceIn(0, safeCount - 1)
+      onPageChanged(pageIdx)
+      onUnitViewed("pdf_p$pageIdx")
     }
   }
 
