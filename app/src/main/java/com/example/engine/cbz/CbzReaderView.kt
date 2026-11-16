@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -81,6 +82,7 @@ fun CbzReaderView(
   var scale by remember { mutableFloatStateOf(1f) }
   var offsetX by remember { mutableFloatStateOf(0f) }
   var offsetY by remember { mutableFloatStateOf(0f) }
+  var lastHandledStepNonce by remember { mutableIntStateOf(externalPageStepSignal.second) }
 
   LaunchedEffect(settings.readingLayoutMode) {
     scale = 1f
@@ -125,9 +127,10 @@ fun CbzReaderView(
     }
   }
 
-  LaunchedEffect(externalPageStepSignal, settings.readingLayoutMode, safeCount) {
+  LaunchedEffect(externalPageStepSignal) {
     val (delta, nonce) = externalPageStepSignal
-    if (nonce > 0 && delta != 0) {
+    if (nonce > lastHandledStepNonce && delta != 0) {
+      lastHandledStepNonce = nonce
       if (settings.readingLayoutMode == ReadingLayoutMode.PAGED) {
         val target = (pagerState.currentPage + delta).coerceIn(0, safeCount - 1)
         if (target != pagerState.currentPage) {

@@ -24,4 +24,6 @@
     <string name="highlights_tab">Highlights</string>
     <string name="search_tab">Search</string>
     <string name="widget_continue_description">Resume your current book and view today\'s reading goal.</string>
+    <string name="widget_stats_description">View daily reading time, total pages read, streak, and 7-day trend chart.</string>
+    <string name="widget_streak_description">Compact 1×1 flame badge showing your active daily reading streak.</string>
 </resources>

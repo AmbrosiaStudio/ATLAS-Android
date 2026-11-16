@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.GridView
@@ -122,6 +123,7 @@ fun LibraryScreen(
   onOpenBook: (String) -> Unit,
   onOpenSettings: () -> Unit,
   onOpenStats: () -> Unit = {},
+  onOpenStudio: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val strings = LocalAppStrings.current
@@ -337,6 +339,13 @@ fun LibraryScreen(
                     containerColor = MaterialTheme.colorScheme.surface,
                   ) {
                     DropdownMenuItem(
+                      text = { Text(strings.studioMenuAction, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium) },
+                      onClick = {
+                        showMoreMenu = false
+                        onOpenStudio()
+                      },
+                    )
+                    DropdownMenuItem(
                       text = { Text(strings.readingStatsMenu, color = MaterialTheme.colorScheme.onSurface) },
                       onClick = {
                         showMoreMenu = false
@@ -522,6 +531,7 @@ fun LibraryScreen(
             isImporting = uiState.isImporting,
             onImportClick = launchImportPicker,
             onLoadSamplesClick = viewModel::loadSampleClassics,
+            onOpenStudioClick = onOpenStudio,
             modifier =
               Modifier
                 .fillMaxSize()
@@ -658,6 +668,53 @@ fun LibraryScreen(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
               ) {
+                item {
+                  Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                    modifier =
+                      Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onOpenStudio)
+                        .testTag("library_studio_chip"),
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.EditNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(15.dp),
+                      )
+                      Text(
+                        text = strings.studioTitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        softWrap = false,
+                      )
+                      Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                      ) {
+                        Text(
+                          text = strings.studioBetaBadge,
+                          style = MaterialTheme.typography.labelSmall,
+                          fontSize = 9.sp,
+                          fontWeight = FontWeight.Bold,
+                          color = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                        )
+                      }
+                    }
+                  }
+                }
+
                 item {
                   Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -1304,6 +1361,7 @@ private fun EmptyLibraryView(
   isImporting: Boolean,
   onImportClick: () -> Unit,
   onLoadSamplesClick: () -> Unit,
+  onOpenStudioClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val strings = LocalAppStrings.current
@@ -1401,6 +1459,26 @@ private fun EmptyLibraryView(
         text = strings.loadSamples,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurface,
+      )
+    }
+
+    Spacer(modifier = Modifier.height(10.dp))
+
+    TextButton(
+      onClick = onOpenStudioClick,
+      modifier = Modifier.testTag("empty_studio_button"),
+    ) {
+      Icon(
+        imageVector = Icons.Rounded.EditNote,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(17.dp),
+      )
+      Spacer(modifier = Modifier.width(6.dp))
+      Text(
+        text = strings.studioMenuAction,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
       )
     }
   }

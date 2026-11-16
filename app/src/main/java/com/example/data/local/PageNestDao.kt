@@ -164,4 +164,47 @@ interface PageNestDao {
 
   @Query("DELETE FROM book_shelf_cross_ref WHERE bookId = :bookId AND shelfId = :shelfId")
   suspend fun deleteBookShelfRef(bookId: String, shelfId: Long)
+
+  // PageNest Studio (Beta) — Writer Books & Chapters
+  @Query("SELECT * FROM writer_books ORDER BY updatedAt DESC")
+  fun observeAllWriterBooks(): Flow<List<WriterBookEntity>>
+
+  @Query("SELECT * FROM writer_books WHERE id = :bookId LIMIT 1")
+  fun observeWriterBook(bookId: String): Flow<WriterBookEntity?>
+
+  @Query("SELECT * FROM writer_books WHERE id = :bookId LIMIT 1")
+  suspend fun getWriterBook(bookId: String): WriterBookEntity?
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertWriterBook(book: WriterBookEntity)
+
+  @Query("DELETE FROM writer_books WHERE id = :bookId")
+  suspend fun deleteWriterBook(bookId: String)
+
+  @Query("SELECT * FROM writer_chapters ORDER BY bookId ASC, orderIndex ASC, id ASC")
+  fun observeAllWriterChapters(): Flow<List<WriterChapterEntity>>
+
+  @Query("SELECT * FROM writer_chapters WHERE bookId = :bookId ORDER BY orderIndex ASC, id ASC")
+  fun observeWriterChapters(bookId: String): Flow<List<WriterChapterEntity>>
+
+  @Query("SELECT * FROM writer_chapters WHERE bookId = :bookId ORDER BY orderIndex ASC, id ASC")
+  suspend fun getWriterChapters(bookId: String): List<WriterChapterEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertWriterChapter(chapter: WriterChapterEntity): Long
+
+  @Query("UPDATE writer_chapters SET title = :title, bodyText = :bodyText, updatedAt = :updatedAt WHERE id = :chapterId")
+  suspend fun updateWriterChapterContent(chapterId: Long, title: String, bodyText: String, updatedAt: Long)
+
+  @Query("UPDATE writer_chapters SET orderIndex = :orderIndex WHERE id = :chapterId")
+  suspend fun updateWriterChapterOrder(chapterId: Long, orderIndex: Int)
+
+  @Query("DELETE FROM writer_chapters WHERE id = :chapterId")
+  suspend fun deleteWriterChapter(chapterId: Long)
+
+  @Query("UPDATE writer_books SET updatedAt = :updatedAt WHERE id = :bookId")
+  suspend fun touchWriterBookUpdatedAt(bookId: String, updatedAt: Long)
+
+  @Query("UPDATE writer_books SET publishedBookId = :publishedBookId, updatedAt = :updatedAt WHERE id = :bookId")
+  suspend fun updateWriterBookPublishedId(bookId: String, publishedBookId: String, updatedAt: Long)
 }

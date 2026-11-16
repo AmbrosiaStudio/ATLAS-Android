@@ -16,8 +16,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     BookProgressPointEntity::class,
     ShelfEntity::class,
     BookShelfCrossRef::class,
+    WriterBookEntity::class,
+    WriterChapterEntity::class,
   ],
-  version = 3,
+  version = 4,
   exportSchema = false,
 )
 abstract class PageNestDatabase : RoomDatabase() {
@@ -97,6 +99,46 @@ abstract class PageNestDatabase : RoomDatabase() {
         }
       }
 
+    val MIGRATION_3_4: Migration =
+      object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+          db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `writer_books` (
+              `id` TEXT NOT NULL,
+              `title` TEXT NOT NULL,
+              `author` TEXT NOT NULL,
+              `synopsis` TEXT NOT NULL,
+              `isRtl` INTEGER NOT NULL,
+              `createdAt` INTEGER NOT NULL,
+              `updatedAt` INTEGER NOT NULL,
+              `publishedBookId` TEXT,
+              PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+          )
+          db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `writer_chapters` (
+              `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+              `bookId` TEXT NOT NULL,
+              `orderIndex` INTEGER NOT NULL,
+              `title` TEXT NOT NULL,
+              `bodyText` TEXT NOT NULL,
+              `updatedAt` INTEGER NOT NULL,
+              FOREIGN KEY(`bookId`) REFERENCES `writer_books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+          )
+          db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_writer_chapters_bookId` ON `writer_chapters` (`bookId`)"
+          )
+          db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_writer_chapters_orderIndex` ON `writer_chapters` (`orderIndex`)"
+          )
+        }
+      }
+
     @Volatile private var instance: PageNestDatabase? = null
 
     fun getInstance(context: Context): PageNestDatabase =
@@ -108,7 +150,7 @@ abstract class PageNestDatabase : RoomDatabase() {
                 PageNestDatabase::class.java,
                 "pagenest.db",
               )
-              .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+              .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
               .build()
               .also { instance = it }
         }

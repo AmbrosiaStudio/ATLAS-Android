@@ -39,6 +39,7 @@ import java.io.File
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,6 +48,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface ReaderDocumentState {
   data object Loading : ReaderDocumentState
@@ -87,6 +89,7 @@ data class ReaderUiState(
   val currentChapterOrPage: Int = 0,
   val currentScrollFraction: Float = 0f,
   val pendingAnchor: String? = null,
+  val jumpToEpubSignal: Int = 0,
   val jumpToPdfPageSignal: Pair<Int, Int> = 0 to 0,
   val controlsVisible: Boolean = true,
   val dockExpanded: Boolean = true,
@@ -204,6 +207,7 @@ class ReaderViewModel(
     val chapterOrPage: Int = 0,
     val scrollFraction: Float = 0f,
     val pendingAnchor: String? = null,
+    val jumpToEpubSignal: Int = 0,
     val jumpToPdfPageSignal: Pair<Int, Int> = 0 to 0,
   )
 
@@ -266,6 +270,7 @@ class ReaderViewModel(
         currentChapterOrPage = aux.pos.chapterOrPage,
         currentScrollFraction = aux.pos.scrollFraction,
         pendingAnchor = aux.pos.pendingAnchor,
+        jumpToEpubSignal = aux.pos.jumpToEpubSignal,
         jumpToPdfPageSignal = aux.pos.jumpToPdfPageSignal,
         controlsVisible = aux.chrome.controlsVisible,
         dockExpanded = aux.chrome.dockExpanded,
@@ -534,13 +539,16 @@ class ReaderViewModel(
   }
 
   fun flushReadingStatsNow() {
+    saveJob?.cancel()
     viewModelScope.launch {
-      if (unflushedReadingSeconds > 0) {
-        val delta = unflushedReadingSeconds
-        unflushedReadingSeconds = 0
-        readerRepository.recordReadingTime(delta)
+      withContext(NonCancellable) {
+        if (unflushedReadingSeconds > 0) {
+          val delta = unflushedReadingSeconds
+          unflushedReadingSeconds = 0
+          readerRepository.recordReadingTime(delta)
+        }
+        persistProgressSync()
       }
-      persistProgressSync()
     }
   }
 
@@ -557,6 +565,7 @@ class ReaderViewModel(
     val total = uiState.value.totalUnits
     val safe = page.coerceIn(0, total - 1)
     val nonce = positionState.value.jumpToPdfPageSignal.second + 1
+    saveJob?.cancel()
     positionState.update {
       it.copy(chapterOrPage = safe, scrollFraction = 0f, jumpToPdfPageSignal = safe to nonce)
     }
@@ -566,11 +575,13 @@ class ReaderViewModel(
   fun goToChapter(chapterIndex: Int, scrollFraction: Float = 0f, anchor: String? = null) {
     val total = uiState.value.totalUnits
     val safe = chapterIndex.coerceIn(0, total - 1)
+    saveJob?.cancel()
     positionState.update {
       it.copy(
         chapterOrPage = safe,
         scrollFraction = scrollFraction.coerceIn(0f, 1f),
         pendingAnchor = anchor,
+        jumpToEpubSignal = it.jumpToEpubSignal + 1,
       )
     }
     chromeState.update { it.copy(selectionAnchor = SelectionAnchor(), activeSheet = ReaderSheetType.NONE) }
@@ -584,7 +595,8 @@ class ReaderViewModel(
   fun navigateChapterDelta(delta: Int) {
     val target = positionState.value.chapterOrPage + delta
     if (target in 0 until uiState.value.totalUnits) {
-      goToChapter(target, 0f)
+      val targetFraction = if (delta < 0) 1f else 0f
+      goToChapter(target, targetFraction)
     }
   }
 
@@ -932,15 +944,18 @@ class ReaderViewModel(
   }
 
   fun closeBookExplicitly(onClosed: () -> Unit) {
+    saveJob?.cancel()
+    readingTimerJob?.cancel()
     viewModelScope.launch {
-      readingTimerJob?.cancel()
-      if (unflushedReadingSeconds > 0) {
-        val rem = unflushedReadingSeconds
-        unflushedReadingSeconds = 0
-        readerRepository.recordReadingTime(rem)
+      withContext(NonCancellable) {
+        if (unflushedReadingSeconds > 0) {
+          val rem = unflushedReadingSeconds
+          unflushedReadingSeconds = 0
+          readerRepository.recordReadingTime(rem)
+        }
+        persistProgressSync()
+        readerRepository.setLastOpenedBookId(null)
       }
-      persistProgressSync()
-      readerRepository.setLastOpenedBookId(null)
       onClosed()
     }
   }

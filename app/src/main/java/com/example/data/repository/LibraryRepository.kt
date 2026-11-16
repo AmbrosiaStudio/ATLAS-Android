@@ -299,6 +299,59 @@ class LibraryRepository(
     return entity
   }
 
+  suspend fun importOrUpdateStudioEpub(
+    epubFile: File,
+    existingBookId: String?,
+    fallbackTitle: String,
+  ): Result<BookEntity> =
+    withContext(Dispatchers.IO) {
+      runCatching {
+        val existingBook = existingBookId?.takeIf { it.isNotBlank() }?.let { dao.getBookById(it) }
+        val targetBookId = existingBook?.id ?: UUID.randomUUID().toString()
+        val booksDir = File(context.filesDir, "books").apply { mkdirs() }
+        val destFile = File(booksDir, "$targetBookId.epub")
+        epubFile.copyTo(destFile, overwrite = true)
+
+        // Invalidate stale extracted XHTML/images so re-opened books reflect the newest draft edits
+        runCatching { File(context.filesDir, "epub_cache/$targetBookId").deleteRecursively() }
+
+        val (meta, coverPath) =
+          epubParser
+            .extractMetadataAndCover(destFile, targetBookId, fallbackTitle)
+            .getOrThrow()
+
+        val now = System.currentTimeMillis()
+        val entity =
+          if (existingBook != null) {
+            existingBook.copy(
+              title = meta.title,
+              author = meta.author,
+              format = BookFormat.EPUB.name,
+              filePath = destFile.absolutePath,
+              coverPath = coverPath ?: existingBook.coverPath,
+              fileSizeBytes = destFile.length(),
+              totalUnits = meta.totalChapters,
+              currentChapterOrPage = existingBook.currentChapterOrPage.coerceIn(0, (meta.totalChapters - 1).coerceAtLeast(0)),
+            )
+          } else {
+            BookEntity(
+              id = targetBookId,
+              title = meta.title,
+              author = meta.author,
+              format = BookFormat.EPUB.name,
+              filePath = destFile.absolutePath,
+              coverPath = coverPath,
+              fileSizeBytes = destFile.length(),
+              totalUnits = meta.totalChapters,
+              addedAt = now,
+            )
+          }
+        dao.upsertBook(entity)
+        PageNestContinueWidget.requestUpdate(context)
+        entity
+      }
+    }
+
   suspend fun deleteBook(book: BookEntity) =
     withContext(Dispatchers.IO) {
       dao.deleteBookById(book.id)

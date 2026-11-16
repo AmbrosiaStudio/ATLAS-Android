@@ -504,4 +504,182 @@ class ExampleRobolectricTest {
     assertEquals(40, loaded.tipFixedMinutes)
     assertTrue(loaded.hasSupportedViaTipJar)
   }
+
+  @Test
+  fun `room v4 writer studio persists manuscripts chapters and cascades deletes`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      val book =
+        com.example.data.local.WriterBookEntity(
+          id = "manuscript-1",
+          title = "Quiet Harbor",
+          author = "AmirSenpai",
+          synopsis = "Short essays on stillness.",
+          isRtl = false,
+          createdAt = 1000L,
+          updatedAt = 2000L,
+        )
+      dao.upsertWriterBook(book)
+      val ch1Id =
+        dao.insertWriterChapter(
+          com.example.data.local.WriterChapterEntity(
+            bookId = "manuscript-1",
+            orderIndex = 0,
+            title = "Chapter 1",
+            bodyText = "Silence at dawn.",
+            updatedAt = 2000L,
+          )
+        )
+      val ch2Id =
+        dao.insertWriterChapter(
+          com.example.data.local.WriterChapterEntity(
+            bookId = "manuscript-1",
+            orderIndex = 1,
+            title = "Chapter 2",
+            bodyText = "Lantern by the shore.",
+            updatedAt = 2500L,
+          )
+        )
+
+      assertEquals(1, dao.observeAllWriterBooks().first().size)
+      val chapters = dao.getWriterChapters("manuscript-1")
+      assertEquals(2, chapters.size)
+      assertEquals("Chapter 1", chapters[0].title)
+      assertEquals("Chapter 2", chapters[1].title)
+
+      dao.updateWriterChapterContent(ch1Id, "Prologue", "Updated prose here.", 3000L)
+      assertEquals("Prologue", dao.getWriterChapters("manuscript-1").first().title)
+
+      dao.updateWriterBookPublishedId("manuscript-1", "lib-book-99", 4000L)
+      assertEquals("lib-book-99", dao.getWriterBook("manuscript-1")?.publishedBookId)
+
+      dao.deleteWriterChapter(ch2Id)
+      assertEquals(1, dao.getWriterChapters("manuscript-1").size)
+
+      dao.deleteWriterBook("manuscript-1")
+      assertEquals(0, dao.observeAllWriterBooks().first().size)
+      assertEquals(0, dao.getWriterChapters("manuscript-1").size)
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `writer epub exporter builds valid ltr and rtl epubs parsed cleanly by epub parser`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val parser = EpubParser(context)
+
+    val ltrBook =
+      com.example.data.local.WriterBookEntity(
+        id = "studio-ltr",
+        title = "Studio Craft",
+        author = "AmirSenpai",
+        synopsis = "Notes on writing in peace.",
+        isRtl = false,
+      )
+    val ltrChapters =
+      listOf(
+        com.example.data.local.WriterChapterEntity(
+          id = 1L,
+          bookId = "studio-ltr",
+          orderIndex = 0,
+          title = "Opening Pages",
+          bodyText = "## First Beat\n> Read slowly and write honestly.\n- Draft calmly with **clarity**.",
+        ),
+        com.example.data.local.WriterChapterEntity(
+          id = 2L,
+          bookId = "studio-ltr",
+          orderIndex = 1,
+          title = "Second Movement",
+          bodyText = "Every quiet morning builds another page.",
+        ),
+      )
+
+    val ltrEpub = com.example.engine.writer.WriterEpubExporter.buildEpubFile(context, ltrBook, ltrChapters)
+    try {
+      assertTrue(ltrEpub.exists() && ltrEpub.length() > 0)
+      val (meta, coverPath) = parser.extractMetadataAndCover(ltrEpub, "studio-ltr-test", "Fallback").getOrThrow()
+      assertEquals("Studio Craft", meta.title)
+      assertEquals("AmirSenpai", meta.author)
+      assertEquals(2, meta.totalChapters)
+      assertNotNull(coverPath)
+      assertTrue(File(coverPath!!).exists())
+
+      val loaded = parser.loadBook(ltrEpub, "studio-ltr-test", "Fallback").getOrThrow()
+      assertEquals(2, loaded.chapters.size)
+      assertEquals("Opening Pages", loaded.toc[0].title)
+      assertEquals("Second Movement", loaded.toc[1].title)
+
+      val mdExport = com.example.engine.writer.WriterEpubExporter.buildMarkdownExport(ltrBook, ltrChapters)
+      assertTrue(mdExport.contains("# Studio Craft"))
+      assertTrue(mdExport.contains("## Opening Pages"))
+      assertTrue(com.example.engine.writer.WriterEpubExporter.countWords(ltrChapters[0].bodyText) >= 10)
+    } finally {
+      ltrEpub.delete()
+    }
+
+    val rtlBook =
+      com.example.data.local.WriterBookEntity(
+        id = "studio-rtl",
+        title = "دفترچه آرامش",
+        author = "نویسنده",
+        synopsis = "",
+        isRtl = true,
+      )
+    val rtlChapters =
+      listOf(
+        com.example.data.local.WriterChapterEntity(
+          id = 3L,
+          bookId = "studio-rtl",
+          orderIndex = 0,
+          title = "فصل نخست",
+          bodyText = "نوشتن در سکوت صبحگاهی آرامش‌بخش است.",
+        )
+      )
+    val rtlEpub = com.example.engine.writer.WriterEpubExporter.buildEpubFile(context, rtlBook, rtlChapters)
+    try {
+      val loadedRtl = parser.loadBook(rtlEpub, "studio-rtl-test", "Fallback").getOrThrow()
+      assertEquals(1, loadedRtl.chapters.size)
+      assertEquals("فصل نخست", loadedRtl.toc.first().title)
+    } finally {
+      rtlEpub.delete()
+    }
+  }
+
+  @Test
+  fun `streak calculator computes active yesterday preserved and broken streaks accurately`() {
+    val cal = java.util.Calendar.getInstance()
+    val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+    val today = fmt.format(cal.time)
+    cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+    val yesterday = fmt.format(cal.time)
+    cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+    val twoDaysAgo = fmt.format(cal.time)
+    cal.add(java.util.Calendar.DAY_OF_YEAR, -2)
+    val fourDaysAgo = fmt.format(cal.time)
+
+    val unbrokenMap =
+      mapOf(
+        today to com.example.data.local.DailyReadingStatEntity(today, 120, 2, 1L),
+        yesterday to com.example.data.local.DailyReadingStatEntity(yesterday, 90, 1, 1L),
+        twoDaysAgo to com.example.data.local.DailyReadingStatEntity(twoDaysAgo, 60, 0, 1L),
+        fourDaysAgo to com.example.data.local.DailyReadingStatEntity(fourDaysAgo, 300, 5, 1L),
+      )
+    assertEquals(3, com.example.model.StreakCalculator.computeActiveStreak(unbrokenMap))
+
+    val preservedYesterdayMap =
+      mapOf(
+        yesterday to com.example.data.local.DailyReadingStatEntity(yesterday, 0, 3, 1L),
+        twoDaysAgo to com.example.data.local.DailyReadingStatEntity(twoDaysAgo, 180, 2, 1L),
+      )
+    assertEquals(2, com.example.model.StreakCalculator.computeActiveStreak(preservedYesterdayMap))
+
+    val brokenMap =
+      mapOf(
+        fourDaysAgo to com.example.data.local.DailyReadingStatEntity(fourDaysAgo, 300, 5, 1L),
+      )
+    assertEquals(0, com.example.model.StreakCalculator.computeActiveStreak(brokenMap))
+  }
 }

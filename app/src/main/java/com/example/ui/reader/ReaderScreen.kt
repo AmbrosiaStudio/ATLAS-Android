@@ -107,6 +107,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.engine.cbz.CbzReaderView
 import com.example.engine.epub.EpubReaderView
@@ -264,6 +267,19 @@ fun ReaderScreen(
     }
   }
 
+  val lifecycleOwner = LocalLifecycleOwner.current
+  DisposableEffect(lifecycleOwner, viewModel) {
+    val observer = LifecycleEventObserver { _, event ->
+      if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+        viewModel.flushReadingStatsNow()
+      }
+    }
+    lifecycleOwner.lifecycle.addObserver(observer)
+    onDispose {
+      lifecycleOwner.lifecycle.removeObserver(observer)
+    }
+  }
+
   LaunchedEffect(uiState.toastMessage) {
     if (uiState.toastMessage != null) {
       delay(2200)
@@ -281,7 +297,10 @@ fun ReaderScreen(
       showNoteDialog -> showNoteDialog = false
       uiState.activeSheet != ReaderSheetType.NONE -> viewModel.closeSheet()
       uiState.selectedText.isNotBlank() -> viewModel.clearSelection()
-      else -> onNavigateBack()
+      else -> {
+        viewModel.flushReadingStatsNow()
+        onNavigateBack()
+      }
     }
   }
 
@@ -397,6 +416,7 @@ fun ReaderScreen(
             dockExpanded = uiState.dockExpanded,
             initialScrollFraction = uiState.currentScrollFraction,
             pendingAnchor = uiState.pendingAnchor,
+            jumpToPositionSignal = uiState.jumpToEpubSignal,
             hasPreviousChapter = uiState.currentChapterOrPage > 0,
             hasNextChapter = uiState.currentChapterOrPage < doc.book.chapters.lastIndex,
             clearSelectionSignal = uiState.clearSelectionSignal,
@@ -460,7 +480,10 @@ fun ReaderScreen(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           IconButton(
-            onClick = onNavigateBack,
+            onClick = {
+              viewModel.flushReadingStatsNow()
+              onNavigateBack()
+            },
             modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_back_button"),
           ) {
             Icon(

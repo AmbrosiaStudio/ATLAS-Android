@@ -5,6 +5,7 @@ import com.example.data.local.PageNestDatabase
 import com.example.data.local.ReaderPreferencesDataStore
 import com.example.data.repository.LibraryRepository
 import com.example.data.repository.ReaderRepository
+import com.example.data.repository.WriterRepository
 import com.example.engine.cbz.CbzEngine
 import com.example.engine.epub.EpubParser
 import com.example.engine.fonts.FontManager
@@ -12,7 +13,7 @@ import com.example.engine.formats.TextFormatsConverter
 import com.example.engine.pdf.PdfEngine
 import com.example.engine.translate.TextTranslator
 import com.example.notifications.StreakReminderScheduler
-import com.example.widget.PageNestContinueWidget
+import com.example.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,6 +41,7 @@ class AppContainer(application: Application) {
       cbzEngine = cbzEngine,
     )
   val readerRepository = ReaderRepository(dao = dao, preferences = preferences, appContext = application)
+  val writerRepository = WriterRepository(context = application, dao = dao, libraryRepository = libraryRepository)
 }
 
 class PageNestApplication : Application() {
@@ -60,7 +62,7 @@ class PageNestApplication : Application() {
           minute = settings.streakReminderMinute,
         )
       }
-      PageNestContinueWidget.requestUpdate(this@PageNestApplication)
+      WidgetUpdater.requestAllUpdates(this@PageNestApplication)
     }
   }
 }

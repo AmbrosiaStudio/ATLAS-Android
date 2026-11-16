@@ -122,11 +122,11 @@ class PageNestContinueWidget : GlanceAppWidget() {
 
   companion object {
     const val EXTRA_OPEN_BOOK_ID = "extra_open_book_id"
+    const val EXTRA_OPEN_ROUTE = "extra_open_route"
+    const val ROUTE_STATS_DEEP_LINK = "stats"
 
     suspend fun requestUpdate(context: Context) {
-      runCatching {
-        PageNestContinueWidget().updateAll(context.applicationContext)
-      }
+      WidgetUpdater.requestAllUpdates(context)
     }
   }
 }

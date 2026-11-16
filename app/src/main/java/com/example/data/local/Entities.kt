@@ -134,3 +134,36 @@ data class BookShelfCrossRef(
   val shelfId: Long,
 )
 
+@Entity(tableName = "writer_books")
+data class WriterBookEntity(
+  @PrimaryKey val id: String,
+  val title: String,
+  val author: String,
+  val synopsis: String = "",
+  val isRtl: Boolean = false,
+  val createdAt: Long = System.currentTimeMillis(),
+  val updatedAt: Long = System.currentTimeMillis(),
+  val publishedBookId: String? = null,
+)
+
+@Entity(
+  tableName = "writer_chapters",
+  foreignKeys = [
+    ForeignKey(
+      entity = WriterBookEntity::class,
+      parentColumns = ["id"],
+      childColumns = ["bookId"],
+      onDelete = ForeignKey.CASCADE,
+    )
+  ],
+  indices = [Index("bookId"), Index("orderIndex")],
+)
+data class WriterChapterEntity(
+  @PrimaryKey(autoGenerate = true) val id: Long = 0,
+  val bookId: String,
+  val orderIndex: Int,
+  val title: String,
+  val bodyText: String = "",
+  val updatedAt: Long = System.currentTimeMillis(),
+)
+

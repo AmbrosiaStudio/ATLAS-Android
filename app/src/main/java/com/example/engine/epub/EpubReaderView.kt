@@ -33,17 +33,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,7 +83,6 @@ import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.SelectionAnchor
 import com.example.model.TextAlignOption
-import com.example.ui.i18n.LocalAppStrings
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.LoraFontFamily
@@ -126,6 +123,7 @@ fun EpubReaderView(
   @Suppress("UNUSED_PARAMETER") dockExpanded: Boolean,
   initialScrollFraction: Float,
   pendingAnchor: String?,
+  jumpToPositionSignal: Int = 0,
   hasPreviousChapter: Boolean,
   hasNextChapter: Boolean,
   clearSelectionSignal: Int,
@@ -138,7 +136,6 @@ fun EpubReaderView(
   onNavigateChapterDelta: (Int) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val strings = LocalAppStrings.current
   val density = LocalDensity.current
   val scope = rememberCoroutineScope()
   val textMeasurer = rememberTextMeasurer()
@@ -148,25 +145,30 @@ fun EpubReaderView(
   val latestSelectionCb by rememberUpdatedState(onSelectionChanged)
   val latestTapCb by rememberUpdatedState(onContentTap)
   val latestNavDeltaCb by rememberUpdatedState(onNavigateChapterDelta)
+  val latestInitialFraction by rememberUpdatedState(initialScrollFraction)
 
   var parsedChapter by remember(chapter.localFilePath) {
     mutableStateOf(ParsedChapterContent(isRtlDocument = false, blocks = emptyList()))
   }
+  var loadedChapterPath by remember(chapter.localFilePath) { mutableStateOf<String?>(null) }
   var activeSelection by remember(chapter.localFilePath) {
     mutableStateOf<ActiveBlockSelection?>(null)
   }
   var internalAnchorTarget by remember(chapter.localFilePath) { mutableStateOf<String?>(null) }
   var internalAnchorNonce by remember { mutableIntStateOf(0) }
+  var lastHandledStepNonce by remember { mutableIntStateOf(externalPageStepSignal.second) }
 
   LaunchedEffect(chapter.localFilePath) {
     activeSelection = null
     internalAnchorTarget = null
+    loadedChapterPath = null
     val loaded =
       withContext(Dispatchers.IO) {
         val raw = runCatching { File(chapter.localFilePath).readText() }.getOrDefault("")
         EpubHtmlBlockParser.parse(raw, chapter.localFilePath)
       }
     parsedChapter = loaded
+    loadedChapterPath = chapter.localFilePath
   }
 
   LaunchedEffect(clearSelectionSignal) {
@@ -226,6 +228,10 @@ fun EpubReaderView(
     val borderInsetH = if (settings.showPageBorder) 14.dp else 0.dp
     val borderInsetV = if (settings.showPageBorder) 12.dp else 0.dp
 
+    if (loadedChapterPath != chapter.localFilePath) {
+      return@BoxWithConstraints
+    }
+
     if (settings.readingLayoutMode == ReadingLayoutMode.PAGED) {
       val topSafeReserveDp = statusTopDp + settings.verticalMarginDp.dp.coerceAtLeast(16.dp) + 56.dp
       val bottomSafeReserveDp = navBottomDp + settings.verticalMarginDp.dp.coerceAtLeast(16.dp) + 74.dp
@@ -242,106 +248,120 @@ fun EpubReaderView(
             .coerceAtLeast(160)
         }
 
-      val pages =
-        remember(
-          parsedChapter.blocks,
-          availableTextWidthPx,
-          availableTextHeightPx,
-          baseBodyStyle,
-          settings.paragraphSpacingEm,
-          density.density,
-        ) {
-          val pSpacingPx = with(density) { paragraphSpacingDp.toPx() }
-          val hSpacingPx = with(density) { (paragraphSpacingDp + 6.dp).toPx() }
-          val bqExtraWidth = with(density) { 20.dp.toPx() }.roundToInt()
-          val bqPadVPx = with(density) { 8.dp.toPx() }.roundToInt()
-          val bulletW = with(density) { 24.dp.toPx() }.roundToInt()
-          val imgMaxH = with(density) { 280.dp.toPx() }.roundToInt()
-          val divH = with(density) { 24.dp.toPx() }.roundToInt()
+      key(chapter.localFilePath) {
+        val pages =
+          remember(
+            parsedChapter.blocks,
+            availableTextWidthPx,
+            availableTextHeightPx,
+            baseBodyStyle,
+            settings.paragraphSpacingEm,
+            density.density,
+          ) {
+            val pSpacingPx = with(density) { paragraphSpacingDp.toPx() }
+            val hSpacingPx = with(density) { (paragraphSpacingDp + 6.dp).toPx() }
+            val bqExtraWidth = with(density) { 20.dp.toPx() }.roundToInt()
+            val bqPadVPx = with(density) { 8.dp.toPx() }.roundToInt()
+            val bulletW = with(density) { 24.dp.toPx() }.roundToInt()
+            val imgMaxH = with(density) { 280.dp.toPx() }.roundToInt()
+            val divH = with(density) { 24.dp.toPx() }.roundToInt()
 
-          EpubPaginator.paginate(
-            blocks = parsedChapter.blocks,
-            textMeasurer = textMeasurer,
-            contentWidthPx = availableTextWidthPx,
-            contentHeightPx = availableTextHeightPx,
-            baseBodyStyle = baseBodyStyle,
-            paragraphSpacingPx = pSpacingPx,
-            headingSpacingPx = hSpacingPx,
-            blockquoteExtraWidthPx = bqExtraWidth,
-            blockquotePaddingVPx = bqPadVPx,
-            listItemBulletWidthPx = bulletW,
-            imageMaxHeightPx = imgMaxH,
-            dividerHeightPx = divH,
-            densityScale = density.density,
-          )
-        }
-
-      val pageCount = pages.size.coerceAtLeast(1)
-      val initialPageIndex =
-        remember(chapter.localFilePath, pendingAnchor, pageCount) {
-          val anchorPage =
-            pendingAnchor?.let { anc ->
-              pages.indexOfFirst { anc in it.anchors }.takeIf { it >= 0 }
-            }
-          anchorPage
-            ?: (initialScrollFraction * (pageCount - 1)).roundToInt().coerceIn(0, pageCount - 1)
-        }
-
-      val pagerState = rememberPagerState(initialPage = initialPageIndex, pageCount = { pageCount })
-
-      // Reposition cleanly if pagination count changes or anchor requested
-      LaunchedEffect(pendingAnchor, internalAnchorTarget, internalAnchorNonce, pageCount) {
-        val activeAnc = internalAnchorTarget ?: pendingAnchor
-        if (!activeAnc.isNullOrBlank()) {
-          val idx = pages.indexOfFirst { activeAnc in it.anchors }
-          if (idx >= 0 && idx != pagerState.currentPage) {
-            pagerState.scrollToPage(idx)
+            EpubPaginator.paginate(
+              blocks = parsedChapter.blocks,
+              textMeasurer = textMeasurer,
+              contentWidthPx = availableTextWidthPx,
+              contentHeightPx = availableTextHeightPx,
+              baseBodyStyle = baseBodyStyle,
+              paragraphSpacingPx = pSpacingPx,
+              headingSpacingPx = hSpacingPx,
+              blockquoteExtraWidthPx = bqExtraWidth,
+              blockquotePaddingVPx = bqPadVPx,
+              listItemBulletWidthPx = bulletW,
+              imageMaxHeightPx = imgMaxH,
+              dividerHeightPx = divH,
+              densityScale = density.density,
+            )
           }
-          internalAnchorTarget = null
-        } else {
-          val target = (initialScrollFraction * (pageCount - 1)).roundToInt().coerceIn(0, pageCount - 1)
-          if (pagerState.currentPage >= pageCount) {
-            pagerState.scrollToPage(target)
-          }
-        }
-      }
 
-      LaunchedEffect(pagerState.currentPage, pageCount, chapter.localFilePath) {
-        val frac =
-          if (pageCount <= 1) 0f
-          else pagerState.currentPage.toFloat() / (pageCount - 1).toFloat()
-        latestScrollCb(frac.coerceIn(0f, 1f))
-        if (parsedChapter.blocks.isNotEmpty()) {
-          latestUnitViewedCb("epub_${chapter.index}_p${pagerState.currentPage}")
-        }
-      }
-
-      LaunchedEffect(externalPageStepSignal, chapter.localFilePath, pageCount) {
-        val (delta, nonce) = externalPageStepSignal
-        if (nonce > 0 && delta != 0) {
-          if (delta > 0) {
-            if (pagerState.currentPage < pageCount - 1) {
-              if (settings.batterySaverModeEnabled) {
-                pagerState.scrollToPage(pagerState.currentPage + 1)
-              } else {
-                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+        val pageCount = pages.size.coerceAtLeast(1)
+        val initialPageIndex =
+          remember(pageCount, pendingAnchor) {
+            val anchorPage =
+              pendingAnchor?.let { anc ->
+                pages.indexOfFirst { anc in it.anchors }.takeIf { it >= 0 }
               }
-            } else if (hasNextChapter) {
-              latestNavDeltaCb(1)
+            anchorPage
+              ?: (latestInitialFraction * (pageCount - 1)).roundToInt().coerceIn(0, pageCount - 1)
+          }
+
+        val pagerState = rememberPagerState(initialPage = initialPageIndex, pageCount = { pageCount })
+        var restorationSettled by remember { mutableStateOf(false) }
+        var lastAppliedPageCount by remember { mutableIntStateOf(pageCount) }
+        var lastAppliedJumpSignal by remember { mutableIntStateOf(jumpToPositionSignal) }
+
+        // Restore initial fraction/anchor on chapter ready and handle repagination or explicit jumps cleanly
+        LaunchedEffect(pageCount, pendingAnchor, internalAnchorTarget, internalAnchorNonce, jumpToPositionSignal) {
+          val activeAnc = internalAnchorTarget ?: pendingAnchor
+          val needsReposition =
+            !restorationSettled ||
+              pageCount != lastAppliedPageCount ||
+              jumpToPositionSignal != lastAppliedJumpSignal
+          if (!activeAnc.isNullOrBlank()) {
+            val idx = pages.indexOfFirst { activeAnc in it.anchors }
+            if (idx >= 0 && idx != pagerState.currentPage) {
+              pagerState.scrollToPage(idx)
             }
-          } else {
-            if (pagerState.currentPage > 0) {
-              if (settings.batterySaverModeEnabled) {
-                pagerState.scrollToPage(pagerState.currentPage - 1)
-              } else {
-                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+            internalAnchorTarget = null
+          } else if (needsReposition) {
+            val target = (latestInitialFraction * (pageCount - 1)).roundToInt().coerceIn(0, pageCount - 1)
+            if (pagerState.currentPage != target) {
+              pagerState.scrollToPage(target)
+            }
+          }
+          lastAppliedPageCount = pageCount
+          lastAppliedJumpSignal = jumpToPositionSignal
+          restorationSettled = true
+        }
+
+        LaunchedEffect(pagerState.currentPage, pageCount, restorationSettled) {
+          if (!restorationSettled) return@LaunchedEffect
+          val frac =
+            if (pageCount <= 1) 0f
+            else pagerState.currentPage.toFloat() / (pageCount - 1).toFloat()
+          latestScrollCb(frac.coerceIn(0f, 1f))
+          if (parsedChapter.blocks.isNotEmpty()) {
+            latestUnitViewedCb("epub_${chapter.index}_p${pagerState.currentPage}")
+          }
+        }
+
+        LaunchedEffect(externalPageStepSignal, pageCount, restorationSettled) {
+          if (!restorationSettled) return@LaunchedEffect
+          val (delta, nonce) = externalPageStepSignal
+          if (nonce > lastHandledStepNonce && delta != 0) {
+            lastHandledStepNonce = nonce
+            if (delta > 0) {
+              if (pagerState.currentPage < pageCount - 1) {
+                if (settings.batterySaverModeEnabled) {
+                  pagerState.scrollToPage(pagerState.currentPage + 1)
+                } else {
+                  pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                }
+              } else if (hasNextChapter) {
+                latestNavDeltaCb(1)
               }
-            } else if (hasPreviousChapter) {
-              latestNavDeltaCb(-1)
+            } else {
+              if (pagerState.currentPage > 0) {
+                if (settings.batterySaverModeEnabled) {
+                  pagerState.scrollToPage(pagerState.currentPage - 1)
+                } else {
+                  pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                }
+              } else if (hasPreviousChapter) {
+                latestNavDeltaCb(-1)
+              }
             }
           }
         }
-      }
 
       val pageLayoutDirection =
         if (parsedChapter.isRtlDocument) LayoutDirection.Rtl else LayoutDirection.Ltr
@@ -465,20 +485,6 @@ fun EpubReaderView(
                         .padding(bottom = if (isLastItem) 0.dp else itemBottomPad),
                   )
                 }
-
-                // Boundary chapter controls on first/last page
-                if (pageIdx == pageCount - 1 && (hasPreviousChapter || hasNextChapter)) {
-                  Spacer(modifier = Modifier.weight(1f, fill = true))
-                  ChapterBoundaryControls(
-                    hasPreviousChapter = hasPreviousChapter,
-                    hasNextChapter = hasNextChapter,
-                    palette = palette,
-                    prevLabel = strings.previousChapter,
-                    nextLabel = strings.nextChapter,
-                    onNavigateDelta = { delta -> latestNavDeltaCb(delta) },
-                    modifier = Modifier.padding(top = 8.dp),
-                  )
-                }
               }
 
               // Quiet footer page badge
@@ -494,168 +500,167 @@ fun EpubReaderView(
           }
         }
       }
+      }
     } else {
       // SCROLL MODE: Vertical Scroll with LazyColumn
-      val blocks = parsedChapter.blocks
-      val listState = rememberLazyListState()
+      key(chapter.localFilePath) {
+        val blocks = parsedChapter.blocks
+        val initialBlockIdx =
+          remember(blocks.size) {
+            if (blocks.size <= 1 || pendingAnchor != null) 0
+            else (latestInitialFraction * (blocks.size - 1)).roundToInt().coerceIn(0, blocks.lastIndex)
+          }
+        val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialBlockIdx)
+        var restorationSettled by remember { mutableStateOf(false) }
+        var lastAppliedJumpSignal by remember { mutableIntStateOf(jumpToPositionSignal) }
 
-      // Restore initial scroll fraction or jump to pending anchor
-      LaunchedEffect(chapter.localFilePath, blocks.size) {
-        if (blocks.isNotEmpty() && pendingAnchor == null && initialScrollFraction > 0.01f) {
-          val targetIdx = (initialScrollFraction * (blocks.size - 1)).roundToInt().coerceIn(0, blocks.lastIndex)
-          listState.scrollToItem(targetIdx)
-        }
-      }
-
-      LaunchedEffect(pendingAnchor, internalAnchorTarget, internalAnchorNonce, blocks.size) {
-        val anc = internalAnchorTarget ?: pendingAnchor
-        if (!anc.isNullOrBlank() && blocks.isNotEmpty()) {
-          val idx = blocks.indexOfFirst { anc in it.anchors }
-          if (idx >= 0) {
-            if (settings.batterySaverModeEnabled) {
-              listState.scrollToItem(idx)
-            } else {
-              listState.animateScrollToItem(idx)
+        // Restore initial scroll fraction, explicit jumps, or pending anchor before reporting scroll progress
+        LaunchedEffect(blocks.size, pendingAnchor, internalAnchorTarget, internalAnchorNonce, jumpToPositionSignal) {
+          val anc = internalAnchorTarget ?: pendingAnchor
+          val needsReposition = !restorationSettled || jumpToPositionSignal != lastAppliedJumpSignal
+          if (!anc.isNullOrBlank() && blocks.isNotEmpty()) {
+            val idx = blocks.indexOfFirst { anc in it.anchors }
+            if (idx >= 0) {
+              if (settings.batterySaverModeEnabled || !restorationSettled) {
+                listState.scrollToItem(idx)
+              } else {
+                listState.animateScrollToItem(idx)
+              }
+            }
+            internalAnchorTarget = null
+          } else if (blocks.isNotEmpty() && needsReposition) {
+            val targetIdx = (latestInitialFraction * (blocks.size - 1)).roundToInt().coerceIn(0, blocks.lastIndex)
+            if (listState.firstVisibleItemIndex != targetIdx) {
+              listState.scrollToItem(targetIdx)
             }
           }
-          internalAnchorTarget = null
+          lastAppliedJumpSignal = jumpToPositionSignal
+          restorationSettled = true
         }
-      }
 
-      LaunchedEffect(externalPageStepSignal, chapter.localFilePath) {
-        val (delta, nonce) = externalPageStepSignal
-        if (nonce > 0 && delta != 0) {
-          val stepPx = containerHeightPx * 0.78f
-          if (delta > 0) {
-            if (!listState.canScrollForward && hasNextChapter) {
-              latestNavDeltaCb(1)
-            } else if (settings.batterySaverModeEnabled) {
-              listState.scrollBy(stepPx)
+        LaunchedEffect(externalPageStepSignal, restorationSettled) {
+          if (!restorationSettled) return@LaunchedEffect
+          val (delta, nonce) = externalPageStepSignal
+          if (nonce > lastHandledStepNonce && delta != 0) {
+            lastHandledStepNonce = nonce
+            val stepPx = containerHeightPx * 0.78f
+            if (delta > 0) {
+              if (!listState.canScrollForward && hasNextChapter) {
+                latestNavDeltaCb(1)
+              } else if (settings.batterySaverModeEnabled) {
+                listState.scrollBy(stepPx)
+              } else {
+                listState.animateScrollBy(stepPx)
+              }
             } else {
-              listState.animateScrollBy(stepPx)
-            }
-          } else {
-            if (!listState.canScrollBackward && hasPreviousChapter) {
-              latestNavDeltaCb(-1)
-            } else if (settings.batterySaverModeEnabled) {
-              listState.scrollBy(-stepPx)
-            } else {
-              listState.animateScrollBy(-stepPx)
+              if (!listState.canScrollBackward && hasPreviousChapter) {
+                latestNavDeltaCb(-1)
+              } else if (settings.batterySaverModeEnabled) {
+                listState.scrollBy(-stepPx)
+              } else {
+                listState.animateScrollBy(-stepPx)
+              }
             }
           }
         }
-      }
 
-      val scrollFraction by remember(blocks.size) {
-        derivedStateOf {
-          if (blocks.size <= 1) 0f
-          else (listState.firstVisibleItemIndex.toFloat() / (blocks.size - 1).coerceAtLeast(1)).coerceIn(0f, 1f)
+        val scrollFraction by remember(blocks.size) {
+          derivedStateOf {
+            if (blocks.size <= 1) 0f
+            else (listState.firstVisibleItemIndex.toFloat() / (blocks.size - 1).coerceAtLeast(1)).coerceIn(0f, 1f)
+          }
         }
-      }
-      LaunchedEffect(scrollFraction, chapter.localFilePath) {
-        if (blocks.isNotEmpty()) {
-          latestScrollCb(scrollFraction)
-          val virtualStep = (scrollFraction * 8f).roundToInt()
-          latestUnitViewedCb("epub_${chapter.index}_s$virtualStep")
+        LaunchedEffect(scrollFraction, restorationSettled) {
+          if (restorationSettled && blocks.isNotEmpty()) {
+            latestScrollCb(scrollFraction)
+            val virtualStep = (scrollFraction * 8f).roundToInt()
+            latestUnitViewedCb("epub_${chapter.index}_s$virtualStep")
+          }
         }
-      }
 
-      val scrollLayoutDirection =
-        if (parsedChapter.isRtlDocument) LayoutDirection.Rtl else LayoutDirection.Ltr
-      val topContentPad = statusTopDp + settings.verticalMarginDp.dp.coerceAtLeast(16.dp) + 64.dp
-      val bottomContentPad = navBottomDp + settings.verticalMarginDp.dp.coerceAtLeast(16.dp) + 96.dp
-      val frameBorderColor = palette.text.copy(alpha = if (palette.isDark) 0.16f else 0.14f)
+        val scrollLayoutDirection =
+          if (parsedChapter.isRtlDocument) LayoutDirection.Rtl else LayoutDirection.Ltr
+        val topContentPad = statusTopDp + settings.verticalMarginDp.dp.coerceAtLeast(16.dp) + 64.dp
+        val bottomContentPad = navBottomDp + settings.verticalMarginDp.dp.coerceAtLeast(16.dp) + 96.dp
+        val frameBorderColor = palette.text.copy(alpha = if (palette.isDark) 0.16f else 0.14f)
 
-      CompositionLocalProvider(LocalLayoutDirection provides scrollLayoutDirection) {
-        LazyColumn(
-          state = listState,
-          contentPadding =
-            PaddingValues(
-              start = outerMarginH,
-              end = outerMarginH,
-              top = topContentPad,
-              bottom = bottomContentPad,
-            ),
-          modifier =
-            Modifier
-              .fillMaxSize()
-              .pointerInput(chapter.localFilePath, activeSelection != null) {
-                detectTapGestures(
-                  onTap = {
+        CompositionLocalProvider(LocalLayoutDirection provides scrollLayoutDirection) {
+          LazyColumn(
+            state = listState,
+            contentPadding =
+              PaddingValues(
+                start = outerMarginH,
+                end = outerMarginH,
+                top = topContentPad,
+                bottom = bottomContentPad,
+              ),
+            modifier =
+              Modifier
+                .fillMaxSize()
+                .pointerInput(chapter.localFilePath, activeSelection != null) {
+                  detectTapGestures(
+                    onTap = {
+                      if (activeSelection != null) {
+                        clearActiveSelectionAndReport()
+                      } else {
+                        latestTapCb()
+                      }
+                    }
+                  )
+                },
+          ) {
+            itemsIndexed(
+              items = blocks,
+              key = { idx, blk -> "${chapter.index}_${blk.id}_$idx" },
+            ) { _, block ->
+              val bottomGap =
+                when (block) {
+                  is EpubContentBlock.Heading -> paragraphSpacingDp + 6.dp
+                  is EpubContentBlock.ListItem -> (paragraphSpacingDp * 0.65f) + 2.dp
+                  else -> paragraphSpacingDp
+                }
+              Box(
+                modifier =
+                  Modifier
+                    .fillMaxWidth()
+                    .then(
+                      if (settings.showPageBorder) {
+                        Modifier
+                          .border(BorderStroke(0.8.dp, frameBorderColor), RoundedCornerShape(10.dp))
+                          .padding(horizontal = 12.dp, vertical = 6.dp)
+                      } else {
+                        Modifier
+                      }
+                    )
+                    .padding(bottom = bottomGap),
+              ) {
+                EpubBlockView(
+                  sliceId = block.id,
+                  block = block,
+                  baseBodyStyle = baseBodyStyle,
+                  palette = palette,
+                  highlights = highlights,
+                  activeSelection = activeSelection,
+                  pageWidthPx = containerWidthPx,
+                  onTapBlock = {
                     if (activeSelection != null) {
                       clearActiveSelectionAndReport()
                     } else {
                       latestTapCb()
                     }
-                  }
+                  },
+                  onAnchorClick = { anc ->
+                    internalAnchorTarget = anc
+                    internalAnchorNonce++
+                  },
+                  onUpdateSelection = { sel, anchor ->
+                    activeSelection = sel
+                    latestSelectionCb(anchor)
+                  },
+                  onClearSelection = ::clearActiveSelectionAndReport,
+                  modifier = Modifier.fillMaxWidth(),
                 )
-              },
-        ) {
-          itemsIndexed(
-            items = blocks,
-            key = { idx, blk -> "${chapter.index}_${blk.id}_$idx" },
-          ) { _, block ->
-            val bottomGap =
-              when (block) {
-                is EpubContentBlock.Heading -> paragraphSpacingDp + 6.dp
-                is EpubContentBlock.ListItem -> (paragraphSpacingDp * 0.65f) + 2.dp
-                else -> paragraphSpacingDp
               }
-            Box(
-              modifier =
-                Modifier
-                  .fillMaxWidth()
-                  .then(
-                    if (settings.showPageBorder) {
-                      Modifier
-                        .border(BorderStroke(0.8.dp, frameBorderColor), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                    } else {
-                      Modifier
-                    }
-                  )
-                  .padding(bottom = bottomGap),
-            ) {
-              EpubBlockView(
-                sliceId = block.id,
-                block = block,
-                baseBodyStyle = baseBodyStyle,
-                palette = palette,
-                highlights = highlights,
-                activeSelection = activeSelection,
-                pageWidthPx = containerWidthPx,
-                onTapBlock = {
-                  if (activeSelection != null) {
-                    clearActiveSelectionAndReport()
-                  } else {
-                    latestTapCb()
-                  }
-                },
-                onAnchorClick = { anc ->
-                  internalAnchorTarget = anc
-                  internalAnchorNonce++
-                },
-                onUpdateSelection = { sel, anchor ->
-                  activeSelection = sel
-                  latestSelectionCb(anchor)
-                },
-                onClearSelection = ::clearActiveSelectionAndReport,
-                modifier = Modifier.fillMaxWidth(),
-              )
-            }
-          }
-
-          if (hasPreviousChapter || hasNextChapter) {
-            item(key = "chapter_nav_footer_${chapter.index}") {
-              ChapterBoundaryControls(
-                hasPreviousChapter = hasPreviousChapter,
-                hasNextChapter = hasNextChapter,
-                palette = palette,
-                prevLabel = strings.previousChapter,
-                nextLabel = strings.nextChapter,
-                onNavigateDelta = { delta -> latestNavDeltaCb(delta) },
-                modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
-              )
             }
           }
         }
@@ -949,48 +954,6 @@ private fun SelectableEpubText(
           )
         },
   )
-}
-
-@Composable
-private fun ChapterBoundaryControls(
-  hasPreviousChapter: Boolean,
-  hasNextChapter: Boolean,
-  palette: ReadingPalette,
-  prevLabel: String,
-  nextLabel: String,
-  onNavigateDelta: (Int) -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    if (hasPreviousChapter) {
-      OutlinedButton(
-        onClick = { onNavigateDelta(-1) },
-        border = BorderStroke(1.dp, palette.accent.copy(alpha = 0.45f)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = palette.text),
-        shape = RoundedCornerShape(16.dp),
-      ) {
-        Text(prevLabel, style = MaterialTheme.typography.labelLarge)
-      }
-    }
-    if (hasNextChapter) {
-      val onAccent = if (palette.isDark) Color(0xFF0A2114) else Color.White
-      Button(
-        onClick = { onNavigateDelta(1) },
-        colors =
-          ButtonDefaults.buttonColors(
-            containerColor = palette.accent,
-            contentColor = onAccent,
-          ),
-        shape = RoundedCornerShape(16.dp),
-      ) {
-        Text(nextLabel, style = MaterialTheme.typography.labelLarge, color = onAccent)
-      }
-    }
-  }
 }
 
 private fun resolveReaderComposeFont(

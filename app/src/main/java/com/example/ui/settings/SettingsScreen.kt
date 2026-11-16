@@ -30,8 +30,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
@@ -39,11 +41,13 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Coffee
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -115,6 +119,8 @@ import com.example.ui.theme.PlusJakartaSansFamily
 import com.example.ui.theme.VazirmatnFontFamily
 import com.example.ui.theme.toPalette
 import com.example.widget.PageNestContinueWidgetReceiver
+import com.example.widget.PageNestStatsWidgetReceiver
+import com.example.widget.PageNestStreakWidgetReceiver
 import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -588,59 +594,49 @@ fun SettingsScreen(
                         AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported
                       }.getOrDefault(false)
                   }
-                Row(
-                  modifier = Modifier.fillMaxWidth(),
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                  Row(
-                    verticalAlignment = Alignment.Top,
-                    modifier = Modifier.weight(1f),
-                  ) {
-                    Icon(
-                      imageVector = Icons.Rounded.Widgets,
-                      contentDescription = null,
-                      tint = MaterialTheme.colorScheme.primary,
-                      modifier = Modifier.padding(top = 2.dp).size(20.dp),
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                      Text(
-                        text = strings.widgetSectionTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                      )
-                      Text(
-                        text = strings.widgetSectionSub,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                      )
-                    }
-                  }
-                  if (canPinWidget && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
-                      onClick = {
-                        runCatching {
-                          val manager = AppWidgetManager.getInstance(context)
-                          val provider =
-                            ComponentName(context, PageNestContinueWidgetReceiver::class.java)
-                          manager.requestPinAppWidget(provider, null, null)
-                        }
-                      },
-                      shape = RoundedCornerShape(12.dp),
-                      colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                      modifier = Modifier.testTag("settings_pin_widget_button"),
-                    ) {
-                      Text(
-                        text = if (isFa) "افزودن ویجت" else "Pin Widget",
-                        style = MaterialTheme.typography.labelMedium,
-                      )
+                val pinWidget: (Class<*>) -> Unit = { receiverClass ->
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    runCatching {
+                      val manager = AppWidgetManager.getInstance(context)
+                      val provider = ComponentName(context, receiverClass)
+                      manager.requestPinAppWidget(provider, null, null)
                     }
                   }
                 }
+
+                WidgetSettingRow(
+                  icon = Icons.Rounded.Widgets,
+                  title = strings.widgetSectionTitle,
+                  subtitle = strings.widgetSectionSub,
+                  canPin = canPinWidget,
+                  pinLabel = strings.pinWidgetAction,
+                  testTag = "settings_pin_widget_button",
+                  onPinClick = { pinWidget(PageNestContinueWidgetReceiver::class.java) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                WidgetSettingRow(
+                  icon = Icons.Rounded.BarChart,
+                  title = strings.statsWidgetTitle,
+                  subtitle = strings.statsWidgetSub,
+                  canPin = canPinWidget,
+                  pinLabel = strings.pinWidgetAction,
+                  testTag = "settings_pin_stats_widget_button",
+                  onPinClick = { pinWidget(PageNestStatsWidgetReceiver::class.java) },
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                WidgetSettingRow(
+                  icon = Icons.Rounded.LocalFireDepartment,
+                  title = strings.streakWidgetTitle,
+                  subtitle = strings.streakWidgetSub,
+                  canPin = canPinWidget,
+                  pinLabel = strings.pinWidgetAction,
+                  testTag = "settings_pin_streak_widget_button",
+                  onPinClick = { pinWidget(PageNestStreakWidgetReceiver::class.java) },
+                )
               }
             }
           }
@@ -1279,50 +1275,59 @@ fun SettingsScreen(
       textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
       title = {
         Text(
-          text = strings.changelog,
+          text = "${strings.changelog} · v${BuildConfig.VERSION_NAME}",
           fontFamily = LiterataFontFamily,
           fontWeight = FontWeight.SemiBold,
           color = MaterialTheme.colorScheme.onSurface,
         )
       },
       text = {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          Text(
-            text = "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
+        Column(
+          modifier = Modifier.verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          ChangelogVersionBlock(
+            versionHeading = "v3.1.0 (Build ${BuildConfig.VERSION_CODE}) · Studio, Widgets & Reader Precision",
+            bullets =
+              listOf(
+                "NEW · PageNest Studio (Beta): full offline book-writing studio for authors with multi-chapter drafts, Markdown formatting toolbar, RTL/LTR script support, live autosave, Markdown export, and one-tap EPUB 3.0 publishing straight into your Library.",
+                "NEW · Reading Statistics Widget (4×2): tracks today's goal minutes, total pages read, all-time hours, active streak pill, and a 7-day mini activity bar chart directly on your home screen.",
+                "NEW · 1×1 Streak Flame Widget: compact launcher badge with custom flame icon and live daily streak counter; deep-links into Statistics.",
+                "UX · Removed cluttering Previous/Next Chapter buttons from inside the EPUB reader canvas for clean distraction-free reading.",
+                "FIX · Fixed Volume Up / Volume Down page turning bug where pressing a volume key once could skip through the rest of the book across chapters.",
+                "FIX · Fixed exact page-position restoration inside EPUB chapters on book reopen & cold app launch so PageNest resumes on the exact page you last read (never resetting to page 1 of the chapter), plus Lifecycle flush on app backgrounding.",
+              ),
           )
-          Text(
-            text = "New & Updated",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+          ChangelogVersionBlock(
+            versionHeading = "v3.0 · Collections, Formats, Statistics & Indie Support",
+            bullets =
+              listOf(
+                "NEW · Custom Shelves, Collections & Reading Status Filters (All, Reading, Unread, Finished, Favorites) plus Book Metadata & Cover Editor via Android Photo Picker.",
+                "NEW · Expanded Format Support: native TXT, Markdown (.md), FictionBook (.fb2), and Comic Archives (.cbz) alongside EPUB and PDF.",
+                "NEW · Reading Statistics Dashboard with interactive 7/14-day reading time chart, total pages read, active streak, and book progress trend curve.",
+                "NEW · Daily Streak Reminders (WorkManager local notifications) & Home Screen \"Continue Reading\" Glance Widget.",
+                "NEW · Tip Jar with configurable Iran & international support links, timed/random recommendations, and PageNest Pro supporter activation.",
+              ),
           )
-          Text(
-            text =
-              "• Custom Shelves, Collections & Reading Status Filters (All, Reading, Unread, Finished, Favorites) on Library\n" +
-                "• Book Metadata & Cover Editor (edit title, author, reading status, shelves & replace cover via Android Photo Picker)\n" +
-                "• Expanded Format Support: read TXT, Markdown (.md), FictionBook (.fb2), and Comic Archives (.cbz) natively alongside EPUB & PDF\n" +
-                "• Daily Streak Reminders: opt-in WorkManager local notifications at your preferred time when today's goal is still open\n" +
-                "• Home Screen \"Continue Reading\" Glance Widget with cover art, progress percentage & direct deep-link\n" +
-                "• Reading Statistics Dashboard with interactive Daily Reading Time bar chart, Total Pages Read & Current Book Progress Trend chart\n" +
-                "• Battery-Saver Reading Mode (60Hz cap + reduced blur), Volume Key page turning, 6 themes, Paper Texture & Persian RTL support",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+          ChangelogVersionBlock(
+            versionHeading = "v2.0 · Native Reading Engine & Comfort Upgrade",
+            bullets =
+              listOf(
+                "ENGINE · Replaced Chromium WebView with a 100% native Jetpack Compose EPUB reader engine — permanently eliminating renderer termination crashes (aw_browser_terminator code -1).",
+                "NEW · Battery-Saver Reading Mode (60Hz cap + simplified transitions/no blur) & Volume Key page turning.",
+                "NEW · Added 2 new themes, Black & White Night mode, tactile Paper Texture mode, and reading comfort presets.",
+                "FIX · Polished Persian (FA) RTL header layout, Liquid Glass bottom navigation, and theme contrast across all screens.",
+              ),
           )
-          Text(
-            text = "Bugs Fixed",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
-          Text(
-            text =
-              "• Fixed Persian (FA) library header typography, letter spacing, and RTL action layout spacing\n" +
-                "• Replaced Chromium WebView with a 100% native Jetpack Compose EPUB reader engine — permanently eliminating renderer process termination crashes (aw_browser_terminator code -1) and open/scroll screen flashes\n" +
-                "• Fixed text contrast across EPUB elements and Home/Settings surfaces on theme change",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+          ChangelogVersionBlock(
+            versionHeading = "v1.0 · Foundation Sanctuary (ir.pagenest.mrambrosia)",
+            bullets =
+              listOf(
+                "CORE · Local-first EPUB & PDF library with zero-account private storage, bilingual English/Persian UI, sample classics, custom .ttf/.otf font importer, highlights, marginalia notes, on-device translation, bookmarks, in-book search, and Text-to-Speech Listen Mode.",
+              ),
           )
         }
       },
@@ -1604,6 +1609,86 @@ private fun ReaderFontOption.toFontFamily(): FontFamily =
     ReaderFontOption.PLUS_JAKARTA -> PlusJakartaSansFamily
     ReaderFontOption.JETBRAINS_MONO -> JetBrainsMonoFontFamily
   }
+
+@Composable
+private fun WidgetSettingRow(
+  icon: ImageVector,
+  title: String,
+  subtitle: String,
+  canPin: Boolean,
+  pinLabel: String,
+  testTag: String,
+  onPinClick: () -> Unit,
+) {
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.SpaceBetween,
+  ) {
+    Row(
+      verticalAlignment = Alignment.Top,
+      modifier = Modifier.weight(1f),
+    ) {
+      Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 2.dp).size(20.dp),
+      )
+      Spacer(modifier = Modifier.width(10.dp))
+      Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+          text = title,
+          style = MaterialTheme.typography.titleSmall,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+          text = subtitle,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
+    if (canPin && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      Spacer(modifier = Modifier.width(8.dp))
+      OutlinedButton(
+        onClick = onPinClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+        modifier = Modifier.testTag(testTag),
+      ) {
+        Text(
+          text = pinLabel,
+          style = MaterialTheme.typography.labelMedium,
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun ChangelogVersionBlock(
+  versionHeading: String,
+  bullets: List<String>,
+) {
+  Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Text(
+      text = versionHeading,
+      style = MaterialTheme.typography.titleSmall,
+      fontWeight = FontWeight.SemiBold,
+      color = MaterialTheme.colorScheme.primary,
+    )
+    bullets.forEach { bullet ->
+      Text(
+        text = "• $bullet",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+  }
+}
 
 private fun formatBytes(bytes: Long): String {
   if (bytes < 1024) return "$bytes B"

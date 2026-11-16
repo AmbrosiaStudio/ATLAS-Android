@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
   private var interceptingVolumeUp = false
   private var interceptingVolumeDown = false
   private val pendingWidgetBookId = MutableStateFlow<String?>(null)
+  private val pendingWidgetRoute = MutableStateFlow<String?>(null)
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
           initialValue = ReaderSettings()
         )
       val widgetBookId by pendingWidgetBookId.collectAsStateWithLifecycle()
+      val widgetRoute by pendingWidgetRoute.collectAsStateWithLifecycle()
       val view = LocalView.current
       val isDark = settings.themeMode.isDark
       LaunchedEffect(isDark) {
@@ -56,6 +58,8 @@ class MainActivity : ComponentActivity() {
             container = appContainer,
             widgetBookId = widgetBookId,
             onConsumeWidgetBookId = { pendingWidgetBookId.value = null },
+            widgetRoute = widgetRoute,
+            onConsumeWidgetRoute = { pendingWidgetRoute.value = null },
           )
         }
       }
@@ -73,6 +77,11 @@ class MainActivity : ComponentActivity() {
     if (!bookId.isNullOrBlank()) {
       pendingWidgetBookId.value = bookId
       intent.removeExtra(PageNestContinueWidget.EXTRA_OPEN_BOOK_ID)
+    }
+    val route = intent?.getStringExtra(PageNestContinueWidget.EXTRA_OPEN_ROUTE)
+    if (!route.isNullOrBlank()) {
+      pendingWidgetRoute.value = route
+      intent.removeExtra(PageNestContinueWidget.EXTRA_OPEN_ROUTE)
     }
   }
 

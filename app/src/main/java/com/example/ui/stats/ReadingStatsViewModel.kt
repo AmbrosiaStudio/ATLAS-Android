@@ -133,7 +133,7 @@ class ReadingStatsViewModel(
           settings.totalReadingSecondsAllTime,
           statsByDate.values.sumOf { it.readingSeconds.toLong() },
         )
-      val streak = computeActiveStreak(statsByDate)
+      val streak = com.example.model.StreakCalculator.computeActiveStreak(statsByDate)
 
       ReadingStatsUiState(
         settings = settings,
@@ -196,32 +196,6 @@ class ReadingStatsViewModel(
       cal.add(Calendar.DAY_OF_YEAR, 1)
       entry
     }
-  }
-
-  private fun computeActiveStreak(statsByDate: Map<String, DailyReadingStatEntity>): Int {
-    val keyFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val cal = Calendar.getInstance()
-    val todayKey = keyFormatter.format(cal.time)
-    val todayActive =
-      statsByDate[todayKey]?.let { it.readingSeconds >= 60 || it.pagesRead > 0 } == true
-
-    if (!todayActive) {
-      // Allow streak to continue if yesterday was active even if user hasn't read today yet
-      cal.add(Calendar.DAY_OF_YEAR, -1)
-    }
-
-    var streak = 0
-    for (i in 0 until 365) {
-      val key = keyFormatter.format(cal.time)
-      val stat = statsByDate[key]
-      if (stat != null && (stat.readingSeconds >= 60 || stat.pagesRead > 0)) {
-        streak++
-        cal.add(Calendar.DAY_OF_YEAR, -1)
-      } else {
-        break
-      }
-    }
-    return streak
   }
 
   class Factory(

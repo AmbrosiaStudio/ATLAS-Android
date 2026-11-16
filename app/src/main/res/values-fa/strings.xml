@@ -24,4 +24,6 @@
     <string name="highlights_tab">هایلایت‌ها</string>
     <string name="search_tab">جستجو</string>
     <string name="widget_continue_description">ادامه آخرین کتاب و نمایش پیشرفت هدف مطالعه امروز.</string>
+    <string name="widget_stats_description">نمایش زمان مطالعه امروز، مجموع صفحات، رشته مطالعه و نمودار ۷ روز اخیر.</string>
+    <string name="widget_streak_description">نشان کوچک ۱×۱ با آیکون شعله و تعداد روزهای متوالی مطالعه.</string>
 </resources>

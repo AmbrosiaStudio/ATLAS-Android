@@ -169,6 +169,7 @@ class ReaderRepository(
       nowMillis = System.currentTimeMillis(),
       minSecondsFloorForToday = floor,
     )
+    appContext?.let { com.example.widget.WidgetUpdater.requestAllUpdates(it) }
   }
 
   suspend fun recordBookProgressSnapshot(
