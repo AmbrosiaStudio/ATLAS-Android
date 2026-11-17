@@ -14,6 +14,11 @@ All notable releases, features, engine upgrades, and bug fixes from **v1.0** thr
 - **Free Public-Domain Book Browser (`CatalogScreen`):** Browse and search **Project Gutenberg** (Gutendex JSON API), **Standard Ebooks** (OPDS Atom XML), and **Custom OPDS** feeds with language filters, cover art, and 1-tap EPUB download directly into your Library.
 - **PageNest Studio Cover Studio & Chapter Reordering:** Design covers using 6 curated editorial color themes or upload custom cover artwork via Android Photo Picker (`PickVisualMedia`), and reorder manuscript chapters (`Move Earlier` / `Move Later`) before publishing to EPUB.
 
+#### Bug Fixes
+- **Text-Selection Popup Redesign & RTL Alignment Fix:** Redesigned the floating reader selection toolbar with PageNest's theme-responsive Liquid-Glass aesthetic and a 3×2 action grid across all 6 reading themes, and fixed physical-coordinate positioning (`AbsoluteAlignment.TopLeft` + `absoluteOffset`) so both English (LTR) and Persian (RTL) never clip or overflow off-screen.
+- **Real Acoustic Ambient Soundscapes (Replacing Raw Static):** Rebuilt `AmbientSoundPlayer` into a 44.1 kHz stereo physical-modeling synthesizer featuring Paul Kellet pink-noise filtering, 2-pole Butterworth biquads, resonant water-droplet pings, organic fireplace flutter & wood crackle transients, and phase-swept ocean surf.
+- **ART Startup `VerifyError` Fix:** Converted `AppStrings` from a 295-parameter `data class` to an `@Immutable interface` with singleton `object` localizations to eliminate the DEX 255-argument-register overflow on launch.
+
 ### فارسی (Persian Release Notes)
 - **تایمر خواب و کاهش ملایم صدا (حالت شنیداری):** زمان‌بند ۱۵، ۳۰، ۴۵، ۶۰ دقیقه یا «پایان فصل» با شمارش معکوس زنده در نوار پخش و کاهش تدریجی و آرام صدا در ۱۵ ثانیه پایانی پیش از توقف.
 - **کنترل صفحه قفل و دکمه‌های هندزفری/هدفون بلوتوث:** اتصال بومی `MediaSession` و سرویس پیش‌زمینه اعلان رسانه برای کنترل پخش، مکث، بند بعدی/قبلی و توقف از روی صفحه قفل و هدفون.
@@ -21,6 +26,11 @@ All notable releases, features, engine upgrades, and bug fixes from **v1.0** thr
 - **صداهای آرامش‌بخش محیطی و تایمر تمرکز (پومودورو):** تولید صدای باران، شومینه، نویز قهوه‌ای و امواج دریا به‌صورت کاملاً آفلاین به همراه تایمر تمرکز پومودورو و شمارنده دوره‌های مطالعه.
 - **مرورگر کتاب‌های رایگان و آزاد (OPDS):** جستجو و دانلود یک‌لمسی کتاب‌های EPUB رایگان از پروژه گوتنبرگ، Standard Ebooks و فیدهای دلخواه OPDS همراه با فیلتر زبان و افزودن خودکار به کتابخانه.
 - **استودیو طراحی جلد و چیدمان فصل‌ها در PageNest Studio:** انتخاب از میان ۶ تم هنری جلد یا تصویر دلخواه با Photo Picker امن و جابه‌جایی و مرتب‌سازی فصل‌های کتاب پیش از انتشار نهایی EPUB.
+
+#### رفع خطاها (Bug Fixes)
+- **بازطراحی منوی شناور انتخاب متن و رفع مشکل راست‌به‌چپ (فارسی و انگلیسی):** بازطراحی کامل منوی شناور با شیشه مایع هم‌رنگ با تم مطالعه و چیدمان منظم ۳×۲ بدون بریدگی دکمه‌ها و اصلاح مختصات فیزیکی صفحه برای جلوگیری از بیرون‌زدگی منو در زبان فارسی و انگلیسی.
+- **بازسازی واقعی صداهای محیطی (حذف صدای خش‌خش/استاتیک):** ارتقای موتور `AmbientSoundPlayer` به سنتز استریو ۴۴.۱ کیلوهرتز با فیلتر نویز صورتی، فیلترهای Butterworth، قطرات واقعی باران، جرقه و صدای هیزم شومینه و موج‌سواری پویا در امواج دریا.
+- **رفع کرش استارتاپ (`VerifyError` در ART):** تبدیل `AppStrings` به اینترفیس و آبجکت‌های مجزا برای رفع محدودیت ۲۵۵ آرگومان DEX هنگام اجرای برنامه.
 
 ---
 

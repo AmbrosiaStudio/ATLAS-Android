@@ -845,4 +845,50 @@ class ExampleRobolectricTest {
       db.close()
     }
   }
+
+  @Test
+  fun `ambient soundscape synthesizer generates non-clipping stereo audio for all sound types`() {
+    val frames = 4096
+    val pcm = ShortArray(frames * 2)
+    val types =
+      listOf(
+        com.example.model.AmbientSoundType.RAIN,
+        com.example.model.AmbientSoundType.FIREPLACE,
+        com.example.model.AmbientSoundType.BROWN_NOISE,
+        com.example.model.AmbientSoundType.OCEAN_WAVES,
+      )
+    types.forEach { soundType ->
+      val synth =
+        com.example.engine.audio.AmbientSoundPlayer.SoundscapeSynthesizer(
+          type = soundType,
+          sampleRate = 44100,
+          seed = 42L,
+        )
+      // Render 4 chunks (~370ms) so fade-in settles and transient voices fire
+      repeat(4) { synth.renderStereoFrames(pcm, frames) }
+
+      var sumSqL = 0.0
+      var sumSqR = 0.0
+      var diffSq = 0.0
+      var maxAbs = 0
+      for (i in 0 until frames) {
+        val l = pcm[i * 2].toInt()
+        val r = pcm[i * 2 + 1].toInt()
+        val absMax = maxOf(kotlin.math.abs(l), kotlin.math.abs(r))
+        if (absMax > maxAbs) maxAbs = absMax
+        sumSqL += l.toDouble() * l.toDouble()
+        sumSqR += r.toDouble() * r.toDouble()
+        val d = (l - r).toDouble()
+        diffSq += d * d
+      }
+      val rmsL = kotlin.math.sqrt(sumSqL / frames)
+      val rmsR = kotlin.math.sqrt(sumSqR / frames)
+      val stereoDiffRms = kotlin.math.sqrt(diffSq / frames)
+
+      assertTrue("$soundType should produce audible signal (rmsL=$rmsL)", rmsL > 120.0)
+      assertTrue("$soundType should produce audible right channel (rmsR=$rmsR)", rmsR > 120.0)
+      assertTrue("$soundType should have true stereo decorrelation (diff=$stereoDiffRms)", stereoDiffRms > 40.0)
+      assertTrue("$soundType should never clip (maxAbs=$maxAbs)", maxAbs <= 32767)
+    }
+  }
 }

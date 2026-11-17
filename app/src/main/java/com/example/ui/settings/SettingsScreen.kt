@@ -1353,6 +1353,8 @@ fun SettingsScreen(
                   "جدید · صداهای آرامش‌بخش محیطی (باران، شومینه، صدای قهوه‌ای، امواج اقیانوس بدون نیاز به اینترنت) و تایمر تمرکز مطالعه پومودورو.",
                   "جدید · کتابخانه آنلاین کتاب‌های رایگان و کلاسیک آزاد (پروژه گوتنبرگ، Standard Ebooks و فیدهای سفارشی OPDS) با دانلود مستقیم و افزودن آنی به قفسه.",
                   "جدید · استودیو طراحی جلد کتاب (۶ قالب هنری + تصویر سفارشی با Photo Picker امن) و مرتب‌سازی و جابه‌جایی فصل‌ها در استودیو نویسندگی پیج‌نست.",
+                  "رفع خطا · بازطراحی منوی شناور انتخاب متن هماهنگ با تم مطالعه (شیشه مایع) و رفع مشکل بریدگی و جای‌گذاری در زبان فارسی و انگلیسی.",
+                  "رفع خطا · بازسازی کامل موتور صداهای محیطی به استریو ۴۴.۱ کیلوهرتز با سنتز طبیعی باران، شومینه، نویز قهوه‌ای و امواج دریا به جای صدای خش‌خش.",
                 ),
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1405,6 +1407,8 @@ fun SettingsScreen(
                   "NEW · Offline Procedural Ambient Soundscapes (Rain, Fireplace, Brown Noise, Ocean Waves) & Pomodoro Focus Timer inside the Reader.",
                   "NEW · Free Public-Domain Book Browser: explore Project Gutenberg, Standard Ebooks, and custom OPDS 1.2 feeds with one-tap EPUB import.",
                   "NEW · Studio Cover Studio & Chapter Reordering: pick from 6 editorial gradients or upload a custom cover photo in PageNest Studio, and reorder chapters anytime.",
+                  "BUG FIX · Redesigned the text-selection popup in theme-matched Liquid Glass with a balanced 3×2 grid and fixed RTL/LTR physical clamping across Persian and English.",
+                  "BUG FIX · Rebuilt Ambient Soundscapes into a 44.1 kHz stereo acoustic synthesizer (pink-noise biquads, water-droplet pings, wood crackles, and sweeping ocean surf) replacing raw static.",
                 ),
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

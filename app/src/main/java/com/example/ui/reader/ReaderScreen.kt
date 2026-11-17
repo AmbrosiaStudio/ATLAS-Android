@@ -31,11 +31,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -63,6 +64,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -81,6 +83,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -96,7 +99,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
@@ -104,7 +106,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -875,36 +876,29 @@ private fun FloatingSelectionMenuOverlay(
 ) {
   val strings = LocalAppStrings.current
   val density = LocalDensity.current
-  val layoutDir = LocalLayoutDirection.current
   val statusBarTopPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
 
   var menuWidthPx by remember { mutableStateOf(with(density) { 320.dp.roundToPx() }) }
-  var menuHeightPx by remember { mutableStateOf(with(density) { 104.dp.roundToPx() }) }
+  var menuHeightPx by remember { mutableStateOf(with(density) { 154.dp.roundToPx() }) }
 
   BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    val maxPopupWidthDp = (maxWidth - 24.dp).coerceIn(240.dp, 344.dp)
     val containerWidthPx = with(density) { maxWidth.toPx() }
     val containerHeightPx = with(density) { maxHeight.toPx() }
     val edgeMarginPx = with(density) { 12.dp.toPx() }
     val gapPx = with(density) { 12.dp.toPx() }
-    val headerReservePx = statusBarTopPx + with(density) { if (controlsVisible) 68.dp.toPx() else 12.dp.toPx() }
-    val dockReservePx = with(density) { if (controlsVisible) 130.dp.toPx() else 24.dp.toPx() }
+    val headerReservePx = statusBarTopPx + with(density) { if (controlsVisible) 70.dp.toPx() else 12.dp.toPx() }
+    val dockReservePx = with(density) { if (controlsVisible) 136.dp.toPx() else 24.dp.toPx() }
 
     val centerXPx = with(density) { ((anchor.leftDp + anchor.rightDp) / 2f).dp.toPx() }
     val topPx = with(density) { anchor.topDp.dp.toPx() }
     val bottomPx = with(density) { anchor.bottomDp.dp.toPx() }
 
-    // If LayoutDirection is RTL, Box.offset offsets from the right side unless converted; force LTR coordinate placement using absolute offset calculation
+    // Always place using physical TopLeft + absoluteOffset so both LTR (English) and RTL (Persian)
+    // clamp cleanly within [edgeMarginPx, containerWidthPx - menuWidthPx - edgeMarginPx].
     val clampedLeftPx =
       (centerXPx - menuWidthPx / 2f)
         .coerceIn(edgeMarginPx, (containerWidthPx - menuWidthPx - edgeMarginPx).coerceAtLeast(edgeMarginPx))
-
-    val offsetXPx =
-      if (layoutDir == LayoutDirection.Rtl) {
-        // offset{} flips x in RTL, so negate distance from right edge
-        -((containerWidthPx - menuWidthPx - clampedLeftPx))
-      } else {
-        clampedLeftPx
-      }
 
     val aboveYPx = topPx - menuHeightPx - gapPx
     val belowYPx = bottomPx + gapPx
@@ -917,23 +911,38 @@ private fun FloatingSelectionMenuOverlay(
         belowYPx.coerceIn(headerReservePx, maxAllowedY)
       }
 
-    val pillBg =
-      if (palette.isDark) Color(0xFF1D211E).copy(alpha = 0.88f)
-      else Color(0xFF111412).copy(alpha = 0.90f)
-    val pillFg = Color(0xFFF6F4F0)
-    val pillMuted = Color(0xFFF6F4F0).copy(alpha = 0.65f)
+    val isNightBw = palette.mode == ReadingThemeMode.NIGHT_BW
+    val glassTint =
+      when {
+        isNightBw -> Color(0xFF141414).copy(alpha = 0.88f)
+        palette.isDark -> palette.dockSurface.copy(alpha = 0.88f)
+        else -> palette.dockSurface.copy(alpha = 0.90f)
+      }
+    val tileBg =
+      if (isNightBw) Color.White.copy(alpha = 0.10f)
+      else palette.controlSurface.copy(alpha = if (palette.isDark) 0.78f else 0.72f)
+    val tileBorder =
+      if (palette.isDark) Color.White.copy(alpha = if (isNightBw) 0.24f else 0.14f)
+      else palette.dockBorder.copy(alpha = 0.62f)
+    val outerShadowAlpha = if (palette.isDark) 0.42f else 0.16f
 
     LiquidGlassCard(
       hazeState = hazeState,
-      isDark = true,
-      shape = RoundedCornerShape(22.dp),
-      tintColor = pillBg,
+      isDark = palette.isDark,
+      shape = RoundedCornerShape(24.dp),
+      tintColor = glassTint,
       batterySaverEnabled = batterySaverEnabled,
       modifier =
         Modifier
-          .offset { IntOffset(offsetXPx.roundToInt(), chosenYPx.roundToInt()) }
-          .widthIn(min = 260.dp, max = 356.dp)
-          .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black.copy(alpha = 0.35f))
+          .align(AbsoluteAlignment.TopLeft)
+          .absoluteOffset { IntOffset(clampedLeftPx.roundToInt(), chosenYPx.roundToInt()) }
+          .widthIn(min = 240.dp, max = maxPopupWidthDp)
+          .shadow(
+            elevation = if (batterySaverEnabled) 6.dp else 14.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = outerShadowAlpha),
+            spotColor = Color.Black.copy(alpha = outerShadowAlpha),
+          )
           .onSizeChanged {
             if (it.width > 0) menuWidthPx = it.width
             if (it.height > 0) menuHeightPx = it.height
@@ -941,10 +950,10 @@ private fun FloatingSelectionMenuOverlay(
           .testTag("floating_selection_menu"),
     ) {
       Column(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        // Row 1: Ink Highlight Dots + Dismiss
+        // Row 1: Highlight Swatches + Label + Dismiss
         Row(
           modifier = Modifier.fillMaxWidth(),
           verticalAlignment = Alignment.CenterVertically,
@@ -952,95 +961,151 @@ private fun FloatingSelectionMenuOverlay(
         ) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
             Text(
               text = strings.highlightLabel,
               style = MaterialTheme.typography.labelSmall,
-              color = pillMuted,
+              fontWeight = FontWeight.SemiBold,
+              color = palette.secondaryText,
+              maxLines = 1,
             )
+            Spacer(modifier = Modifier.width(2.dp))
             HighlightPalette.all.forEach { (name, hex) ->
               val dotColor = Color(android.graphics.Color.parseColor(hex))
               Box(
                 modifier =
                   Modifier
-                    .size(24.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
-                    .background(dotColor)
-                    .border(1.dp, Color.White.copy(alpha = 0.45f), CircleShape)
                     .clickable { onHighlightColor(hex) }
                     .testTag("highlight_color_${name.lowercase()}"),
-              )
+                contentAlignment = Alignment.Center,
+              ) {
+                Box(
+                  modifier =
+                    Modifier
+                      .size(22.dp)
+                      .clip(CircleShape)
+                      .background(dotColor)
+                      .border(
+                        width = 1.dp,
+                        color =
+                          if (palette.isDark) Color.White.copy(alpha = 0.45f)
+                          else palette.text.copy(alpha = 0.18f),
+                        shape = CircleShape,
+                      ),
+                )
+              }
             }
           }
 
-          Box(
+          Surface(
+            shape = CircleShape,
+            color = tileBg,
+            border = BorderStroke(0.7.dp, tileBorder),
             modifier =
               Modifier
-                .size(26.dp)
+                .size(28.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.12f))
                 .clickable(onClick = onDismiss)
                 .testTag("selection_dismiss_button"),
-            contentAlignment = Alignment.Center,
           ) {
-            Icon(
-              imageVector = Icons.Rounded.Close,
-              contentDescription = "Dismiss selection",
-              tint = pillFg,
-              modifier = Modifier.size(15.dp),
-            )
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = strings.done,
+                tint = palette.secondaryText,
+                modifier = Modifier.size(15.dp),
+              )
+            }
           }
         }
 
-        // Row 2: Rich Action Pills (Note, Quote, Translate, Bookmark, Speak, Copy)
-        Row(
-          modifier = Modifier.horizontalScroll(rememberScrollState()),
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-          verticalAlignment = Alignment.CenterVertically,
+        HorizontalDivider(color = palette.divider.copy(alpha = 0.7f))
+
+        // Row 2 & 3: Balanced 3x2 grid so all 6 actions fit comfortably with zero horizontal clipping
+        Column(
+          modifier = Modifier.fillMaxWidth(),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-          SelectionActionChip(
-            icon = Icons.Rounded.EditNote,
-            label = strings.noteAction,
-            fg = pillFg,
-            testTag = "selection_note_button",
-            onClick = onNoteClick,
-          )
-          SelectionActionChip(
-            icon = Icons.Rounded.FormatQuote,
-            label = strings.quoteAction,
-            fg = pillFg,
-            testTag = "selection_quote_button",
-            onClick = onQuoteClick,
-          )
-          SelectionActionChip(
-            icon = Icons.Rounded.Translate,
-            label = strings.translateAction,
-            fg = pillFg,
-            testTag = "selection_translate_button",
-            onClick = onTranslateClick,
-          )
-          SelectionActionChip(
-            icon = Icons.Outlined.BookmarkBorder,
-            label = strings.bookmarkAction,
-            fg = pillFg,
-            testTag = "selection_bookmark_button",
-            onClick = onBookmarkClick,
-          )
-          SelectionActionChip(
-            icon = Icons.Rounded.RecordVoiceOver,
-            label = strings.speakAction,
-            fg = pillFg,
-            testTag = "selection_speak_button",
-            onClick = onSpeakClick,
-          )
-          SelectionActionChip(
-            icon = Icons.Rounded.ContentCopy,
-            label = strings.copyAction,
-            fg = pillFg,
-            testTag = "selection_copy_button",
-            onClick = onCopyClick,
-          )
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            SelectionActionChip(
+              icon = Icons.Rounded.EditNote,
+              label = strings.noteAction,
+              iconTint = palette.accent,
+              fg = palette.text,
+              bg = tileBg,
+              borderColor = tileBorder,
+              testTag = "selection_note_button",
+              modifier = Modifier.weight(1f),
+              onClick = onNoteClick,
+            )
+            SelectionActionChip(
+              icon = Icons.Rounded.FormatQuote,
+              label = strings.quoteAction,
+              iconTint = palette.accent,
+              fg = palette.text,
+              bg = tileBg,
+              borderColor = tileBorder,
+              testTag = "selection_quote_button",
+              modifier = Modifier.weight(1f),
+              onClick = onQuoteClick,
+            )
+            SelectionActionChip(
+              icon = Icons.Rounded.Translate,
+              label = strings.translateAction,
+              iconTint = palette.accent,
+              fg = palette.text,
+              bg = tileBg,
+              borderColor = tileBorder,
+              testTag = "selection_translate_button",
+              modifier = Modifier.weight(1f),
+              onClick = onTranslateClick,
+            )
+          }
+
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            SelectionActionChip(
+              icon = Icons.Outlined.BookmarkBorder,
+              label = strings.bookmarkAction,
+              iconTint = palette.accent,
+              fg = palette.text,
+              bg = tileBg,
+              borderColor = tileBorder,
+              testTag = "selection_bookmark_button",
+              modifier = Modifier.weight(1f),
+              onClick = onBookmarkClick,
+            )
+            SelectionActionChip(
+              icon = Icons.Rounded.RecordVoiceOver,
+              label = strings.speakAction,
+              iconTint = palette.accent,
+              fg = palette.text,
+              bg = tileBg,
+              borderColor = tileBorder,
+              testTag = "selection_speak_button",
+              modifier = Modifier.weight(1f),
+              onClick = onSpeakClick,
+            )
+            SelectionActionChip(
+              icon = Icons.Rounded.ContentCopy,
+              label = strings.copyAction,
+              iconTint = palette.accent,
+              fg = palette.text,
+              bg = tileBg,
+              borderColor = tileBorder,
+              testTag = "selection_copy_button",
+              modifier = Modifier.weight(1f),
+              onClick = onCopyClick,
+            )
+          }
         }
       }
     }
@@ -1051,25 +1116,34 @@ private fun FloatingSelectionMenuOverlay(
 private fun SelectionActionChip(
   icon: ImageVector,
   label: String,
+  iconTint: Color,
   fg: Color,
+  bg: Color,
+  borderColor: Color,
   testTag: String,
+  modifier: Modifier = Modifier,
   onClick: () -> Unit,
 ) {
   Surface(
-    shape = RoundedCornerShape(12.dp),
-    color = Color.White.copy(alpha = 0.11f),
-    border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.16f)),
-    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).testTag(testTag),
+    shape = RoundedCornerShape(14.dp),
+    color = bg,
+    border = BorderStroke(0.7.dp, borderColor),
+    modifier =
+      modifier
+        .heightIn(min = 38.dp)
+        .clip(RoundedCornerShape(14.dp))
+        .clickable(onClick = onClick)
+        .testTag(testTag),
   ) {
     Row(
-      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+      modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(5.dp),
+      horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
     ) {
       Icon(
         imageVector = icon,
         contentDescription = label,
-        tint = fg,
+        tint = iconTint,
         modifier = Modifier.size(15.dp),
       )
       Text(
@@ -1078,6 +1152,7 @@ private fun SelectionActionChip(
         fontWeight = FontWeight.Medium,
         color = fg,
         maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
       )
     }
   }
