@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     WriterBookEntity::class,
     WriterChapterEntity::class,
   ],
-  version = 4,
+  version = 5,
   exportSchema = false,
 )
 abstract class PageNestDatabase : RoomDatabase() {
@@ -139,6 +139,14 @@ abstract class PageNestDatabase : RoomDatabase() {
         }
       }
 
+    val MIGRATION_4_5: Migration =
+      object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+          db.execSQL("ALTER TABLE `writer_books` ADD COLUMN `coverThemeId` INTEGER NOT NULL DEFAULT 0")
+          db.execSQL("ALTER TABLE `writer_books` ADD COLUMN `coverImagePath` TEXT")
+        }
+      }
+
     @Volatile private var instance: PageNestDatabase? = null
 
     fun getInstance(context: Context): PageNestDatabase =
@@ -150,7 +158,7 @@ abstract class PageNestDatabase : RoomDatabase() {
                 PageNestDatabase::class.java,
                 "pagenest.db",
               )
-              .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+              .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
               .build()
               .also { instance = it }
         }

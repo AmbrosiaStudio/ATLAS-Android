@@ -18,6 +18,7 @@ import com.example.model.ReaderFontOption
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.model.TapZoneAction
 import com.example.model.TextAlignOption
 import com.example.model.TipPromptMode
 import kotlinx.coroutines.flow.Flow
@@ -70,6 +71,14 @@ class ReaderPreferencesDataStore(private val context: Context) {
     val NEXT_TIP_PROMPT_AT_READING_SEC = longPreferencesKey("next_tip_prompt_at_reading_sec")
     val LAST_TIP_PROMPT_SHOWN_AT = longPreferencesKey("last_tip_prompt_shown_at")
     val HAS_SUPPORTED_VIA_TIP_JAR = booleanPreferencesKey("has_supported_via_tip_jar")
+    val LEFT_TAP_ACTION = stringPreferencesKey("left_tap_action")
+    val CENTER_TAP_ACTION = stringPreferencesKey("center_tap_action")
+    val RIGHT_TAP_ACTION = stringPreferencesKey("right_tap_action")
+    val EDGE_BRIGHTNESS_SWIPE = booleanPreferencesKey("edge_brightness_swipe")
+    val DOUBLE_TAP_BOOKMARK = booleanPreferencesKey("double_tap_bookmark")
+    val AMBIENT_VOLUME = floatPreferencesKey("ambient_volume")
+    val FOCUS_WORK_MINUTES = intPreferencesKey("focus_work_minutes")
+    val FOCUS_BREAK_MINUTES = intPreferencesKey("focus_break_minutes")
   }
 
   private fun Preferences.toSettings(): ReaderSettings =
@@ -134,6 +143,20 @@ class ReaderPreferencesDataStore(private val context: Context) {
           ?: (MonetizationConfig.FIRST_PROMPT_AFTER_READING_MINUTES * 60L),
       lastTipPromptShownAtMillis = this[Keys.LAST_TIP_PROMPT_SHOWN_AT] ?: 0L,
       hasSupportedViaTipJar = this[Keys.HAS_SUPPORTED_VIA_TIP_JAR] ?: false,
+      leftTapAction =
+        this[Keys.LEFT_TAP_ACTION]?.let { runCatching { TapZoneAction.valueOf(it) }.getOrNull() }
+          ?: TapZoneAction.PREV_PAGE,
+      centerTapAction =
+        this[Keys.CENTER_TAP_ACTION]?.let { runCatching { TapZoneAction.valueOf(it) }.getOrNull() }
+          ?: TapZoneAction.TOGGLE_CONTROLS,
+      rightTapAction =
+        this[Keys.RIGHT_TAP_ACTION]?.let { runCatching { TapZoneAction.valueOf(it) }.getOrNull() }
+          ?: TapZoneAction.NEXT_PAGE,
+      edgeBrightnessSwipeEnabled = this[Keys.EDGE_BRIGHTNESS_SWIPE] ?: true,
+      doubleTapBookmarkEnabled = this[Keys.DOUBLE_TAP_BOOKMARK] ?: false,
+      ambientVolume = (this[Keys.AMBIENT_VOLUME] ?: 0.45f).coerceIn(0.05f, 1.0f),
+      focusWorkMinutes = (this[Keys.FOCUS_WORK_MINUTES] ?: 25).coerceIn(5, 90),
+      focusBreakMinutes = (this[Keys.FOCUS_BREAK_MINUTES] ?: 5).coerceIn(1, 30),
     )
 
   val settingsFlow: Flow<ReaderSettings> = context.readerDataStore.data.map { it.toSettings() }
@@ -188,6 +211,14 @@ class ReaderPreferencesDataStore(private val context: Context) {
       prefs[Keys.NEXT_TIP_PROMPT_AT_READING_SEC] = next.nextTipPromptAtReadingSeconds
       prefs[Keys.LAST_TIP_PROMPT_SHOWN_AT] = next.lastTipPromptShownAtMillis
       prefs[Keys.HAS_SUPPORTED_VIA_TIP_JAR] = next.hasSupportedViaTipJar
+      prefs[Keys.LEFT_TAP_ACTION] = next.leftTapAction.name
+      prefs[Keys.CENTER_TAP_ACTION] = next.centerTapAction.name
+      prefs[Keys.RIGHT_TAP_ACTION] = next.rightTapAction.name
+      prefs[Keys.EDGE_BRIGHTNESS_SWIPE] = next.edgeBrightnessSwipeEnabled
+      prefs[Keys.DOUBLE_TAP_BOOKMARK] = next.doubleTapBookmarkEnabled
+      prefs[Keys.AMBIENT_VOLUME] = next.ambientVolume
+      prefs[Keys.FOCUS_WORK_MINUTES] = next.focusWorkMinutes
+      prefs[Keys.FOCUS_BREAK_MINUTES] = next.focusBreakMinutes
     }
   }
 

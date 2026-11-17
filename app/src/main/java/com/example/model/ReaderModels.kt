@@ -149,6 +149,42 @@ enum class TipPromptMode(
   OFF("Off", "خاموش"),
 }
 
+enum class TapZoneAction(
+  val label: String,
+  val faLabel: String,
+) {
+  PREV_PAGE("Previous Page", "صفحه قبل"),
+  NEXT_PAGE("Next Page", "صفحه بعد"),
+  TOGGLE_CONTROLS("Toggle Controls", "نمایش/مخفی منو"),
+  QUICK_BOOKMARK("Quick Bookmark", "نشانک سریع"),
+  NONE("Disabled", "غیرفعال"),
+}
+
+enum class SleepTimerPreset(
+  val minutes: Int,
+  val isEndOfChapter: Boolean,
+  val label: String,
+  val faLabel: String,
+) {
+  OFF(0, false, "Off", "خاموش"),
+  MIN_15(15, false, "15 min", "۱۵ دقیقه"),
+  MIN_30(30, false, "30 min", "۳۰ دقیقه"),
+  MIN_45(45, false, "45 min", "۴۵ دقیقه"),
+  MIN_60(60, false, "60 min", "۶۰ دقیقه"),
+  END_OF_CHAPTER(0, true, "End of Chapter", "پایان فصل"),
+}
+
+enum class AmbientSoundType(
+  val label: String,
+  val faLabel: String,
+) {
+  NONE("Off", "خاموش"),
+  RAIN("Soft Rain", "باران آرام"),
+  FIREPLACE("Cozy Fireplace", "شومینه"),
+  BROWN_NOISE("Brown Noise", "نویز قهوه‌ای"),
+  OCEAN_WAVES("Ocean Waves", "امواج دریا"),
+}
+
 data class ReaderSettings(
   val appLanguage: AppLanguage = AppLanguage.ENGLISH,
   val themeMode: ReadingThemeMode = ReadingThemeMode.PAPER,
@@ -192,6 +228,14 @@ data class ReaderSettings(
   val nextTipPromptAtReadingSeconds: Long = 15L * 60L,
   val lastTipPromptShownAtMillis: Long = 0L,
   val hasSupportedViaTipJar: Boolean = false,
+  val leftTapAction: TapZoneAction = TapZoneAction.PREV_PAGE,
+  val centerTapAction: TapZoneAction = TapZoneAction.TOGGLE_CONTROLS,
+  val rightTapAction: TapZoneAction = TapZoneAction.NEXT_PAGE,
+  val edgeBrightnessSwipeEnabled: Boolean = true,
+  val doubleTapBookmarkEnabled: Boolean = false,
+  val ambientVolume: Float = 0.45f,
+  val focusWorkMinutes: Int = 25,
+  val focusBreakMinutes: Int = 5,
 )
 
 data class EpubChapter(

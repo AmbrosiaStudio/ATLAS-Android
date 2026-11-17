@@ -33,10 +33,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,7 +70,9 @@ import com.example.engine.tts.ListenState
 import com.example.model.BookFormat
 import com.example.model.ReaderMode
 import com.example.model.ReadingThemeMode
+import com.example.model.SleepTimerPreset
 import com.example.ui.i18n.LocalAppStrings
+import com.example.ui.reader.SleepTimerState
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.ReadingPalette
 import dev.chrisbanes.haze.HazeState
@@ -96,11 +101,15 @@ fun SignatureBottomDockOverlay(
   locationSummary: String,
   readerMode: ReaderMode,
   listenState: ListenState,
+  sleepTimer: SleepTimerState = SleepTimerState(),
   onToggleExpanded: () -> Unit,
   onScrubProgress: (Float) -> Unit,
   onSelectMode: (ReaderMode) -> Unit,
   onTogglePlayPauseTts: () -> Unit,
+  onSkipTtsPrevious: () -> Unit = {},
+  onSkipTtsNext: () -> Unit = {},
   onCycleTtsSpeed: () -> Unit,
+  onOpenFocusAudioSheet: () -> Unit = {},
   onOpenThemeBrightness: () -> Unit,
   onOpenTypography: () -> Unit,
   onOpenContents: () -> Unit,
@@ -220,7 +229,19 @@ fun SignatureBottomDockOverlay(
                   verticalAlignment = Alignment.CenterVertically,
                   horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                  Row(verticalAlignment = Alignment.CenterVertically) {
+                  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    IconButton(
+                      onClick = onSkipTtsPrevious,
+                      modifier = Modifier.size(32.dp).testTag("tts_prev_button"),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.SkipPrevious,
+                        contentDescription = "Previous",
+                        tint = glassFg,
+                        modifier = Modifier.size(20.dp),
+                      )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                     val ttsPlayBg = if (isNightBw) Color.White else palette.accent
                     val ttsPlayFg = if (palette.isDark) Color(0xFF0A140E) else Color.White
                     Surface(
@@ -245,7 +266,19 @@ fun SignatureBottomDockOverlay(
                         )
                       }
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                      onClick = onSkipTtsNext,
+                      modifier = Modifier.size(32.dp).testTag("tts_next_button"),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.SkipNext,
+                        contentDescription = "Next",
+                        tint = glassFg,
+                        modifier = Modifier.size(20.dp),
+                      )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Column {
                       Text(
                         text =
@@ -254,6 +287,7 @@ fun SignatureBottomDockOverlay(
                           else "Paused",
                         style = MaterialTheme.typography.labelMedium,
                         color = glassFg,
+                        maxLines = 1,
                       )
                       if (listenState.totalChunks > 0) {
                         Text(
@@ -266,22 +300,69 @@ fun SignatureBottomDockOverlay(
                     }
                   }
 
-                  Surface(
-                    shape = CircleShape,
-                    color = palette.controlSurface.copy(alpha = 0.65f),
-                    border = BorderStroke(0.75.dp, palette.dockBorder.copy(alpha = 0.6f)),
-                    modifier =
-                      Modifier
-                        .clip(CircleShape)
-                        .clickable { onCycleTtsSpeed() }
-                        .testTag("tts_speed_button"),
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                   ) {
-                    Text(
-                      text = "${listenState.speechRate}x",
-                      style = MaterialTheme.typography.labelMedium,
-                      color = glassFg,
-                      modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
+                    val timerActive = sleepTimer.preset != SleepTimerPreset.OFF
+                    Surface(
+                      shape = CircleShape,
+                      color =
+                        if (timerActive) palette.accent.copy(alpha = 0.22f)
+                        else palette.controlSurface.copy(alpha = 0.65f),
+                      border =
+                        BorderStroke(
+                          0.75.dp,
+                          if (timerActive) palette.accent else palette.dockBorder.copy(alpha = 0.6f),
+                        ),
+                      modifier =
+                        Modifier
+                          .clip(CircleShape)
+                          .clickable { onOpenFocusAudioSheet() }
+                          .testTag("tts_sleep_timer_button"),
+                    ) {
+                      Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                      ) {
+                        Icon(
+                          imageVector = Icons.Rounded.Bedtime,
+                          contentDescription = strings.sleepTimerLabel,
+                          tint = if (timerActive) palette.accent else glassFg,
+                          modifier = Modifier.size(14.dp),
+                        )
+                        if (timerActive) {
+                          val label =
+                            if (sleepTimer.preset == SleepTimerPreset.END_OF_CHAPTER) "Ch."
+                            else String.format("%d:%02d", sleepTimer.remainingSeconds / 60, sleepTimer.remainingSeconds % 60)
+                          Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = palette.accent,
+                          )
+                        }
+                      }
+                    }
+
+                    Surface(
+                      shape = CircleShape,
+                      color = palette.controlSurface.copy(alpha = 0.65f),
+                      border = BorderStroke(0.75.dp, palette.dockBorder.copy(alpha = 0.6f)),
+                      modifier =
+                        Modifier
+                          .clip(CircleShape)
+                          .clickable { onCycleTtsSpeed() }
+                          .testTag("tts_speed_button"),
+                    ) {
+                      Text(
+                        text = "${listenState.speechRate}x",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = glassFg,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                      )
+                    }
                   }
                 }
               }

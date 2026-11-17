@@ -21,6 +21,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.AppContainer
+import com.example.ui.catalog.CatalogScreen
+import com.example.ui.catalog.CatalogViewModel
 import com.example.ui.library.LibraryScreen
 import com.example.ui.library.LibraryViewModel
 import com.example.ui.reader.ReaderScreen
@@ -42,6 +44,7 @@ const val ROUTE_SETTINGS = "settings"
 const val ROUTE_STATS = "stats?bookId={bookId}"
 const val ROUTE_WRITER_STUDIO = "writer_studio"
 const val ROUTE_WRITER_EDITOR = "writer_editor/{bookId}"
+const val ROUTE_CATALOG = "catalog"
 
 @Composable
 fun PageNestNavGraph(
@@ -137,6 +140,11 @@ fun PageNestNavGraph(
         },
         onOpenStudio = {
           navController.navigate(ROUTE_WRITER_STUDIO) {
+            launchSingleTop = true
+          }
+        },
+        onOpenCatalog = {
+          navController.navigate(ROUTE_CATALOG) {
             launchSingleTop = true
           }
         },
@@ -297,6 +305,32 @@ fun PageNestNavGraph(
         onNavigateBack = { navController.popBackStack() },
         onOpenPublishedBook = { libBookId ->
           navController.navigate("reader/$libBookId") {
+            launchSingleTop = true
+          }
+        },
+      )
+    }
+
+    composable(
+      route = ROUTE_CATALOG,
+      enterTransition = { slideInHorizontally { it / 8 } + fadeIn() },
+      exitTransition = { fadeOut() },
+      popEnterTransition = { fadeIn() },
+      popExitTransition = { slideOutHorizontally { it / 8 } + fadeOut() },
+    ) {
+      val catalogViewModel: CatalogViewModel =
+        viewModel(
+          factory =
+            CatalogViewModel.Factory(
+              catalogRepository = container.opdsCatalogRepository,
+              readerRepository = container.readerRepository,
+            )
+        )
+      CatalogScreen(
+        viewModel = catalogViewModel,
+        onNavigateBack = { navController.popBackStack() },
+        onOpenImportedBook = { bookId ->
+          navController.navigate("reader/$bookId") {
             launchSingleTop = true
           }
         },

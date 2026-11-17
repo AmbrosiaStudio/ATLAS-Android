@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -25,12 +27,24 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FormatAlignJustify
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -40,6 +54,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
@@ -56,6 +71,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -70,6 +86,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.BookmarkEntity
 import com.example.data.local.HighlightEntity
+import com.example.model.AmbientSoundType
 import com.example.model.AppLanguage
 import com.example.model.BookFormat
 import com.example.model.BookSearchMatch
@@ -77,11 +94,16 @@ import com.example.model.ComfortPreset
 import com.example.model.CustomFontEntry
 import com.example.model.EpubTocItem
 import com.example.model.ReaderFontOption
+import com.example.model.ReaderMode
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.model.SleepTimerPreset
+import com.example.model.TapZoneAction
 import com.example.model.TextAlignOption
 import com.example.ui.i18n.LocalAppStrings
+import com.example.ui.reader.FocusTimerState
+import com.example.ui.reader.SleepTimerState
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.LoraFontFamily
@@ -345,6 +367,11 @@ fun TypographySettingsSheet(
   onToggleBatterySaver: (Boolean) -> Unit,
   onSelectAlign: (TextAlignOption) -> Unit,
   onTogglePdfThemeFilter: (Boolean) -> Unit,
+  onSelectLeftTapAction: (TapZoneAction) -> Unit = {},
+  onSelectCenterTapAction: (TapZoneAction) -> Unit = {},
+  onSelectRightTapAction: (TapZoneAction) -> Unit = {},
+  onToggleEdgeBrightnessSwipe: (Boolean) -> Unit = {},
+  onToggleDoubleTapBookmark: (Boolean) -> Unit = {},
   onApplyComfortPreset: (ComfortPreset) -> Unit,
   onResetComfort: () -> Unit,
   onOpenSettings: () -> Unit,
@@ -930,6 +957,175 @@ fun TypographySettingsSheet(
           modifier = Modifier.testTag("sheet_battery_saver_switch"),
         )
       }
+
+      HorizontalDivider(color = palette.divider)
+
+      // Tap Zones & Gestures Customization
+      Text(
+        text = strings.tapZonesSection,
+        style = MaterialTheme.typography.titleSmall,
+        color = palette.text,
+      )
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        TapZoneDropdownTile(
+          zoneLabel = strings.leftTapZoneLabel,
+          selectedAction = settings.leftTapAction,
+          isFa = isFa,
+          palette = palette,
+          onSelect = onSelectLeftTapAction,
+          modifier = Modifier.weight(1f).testTag("tap_zone_left_selector"),
+        )
+        TapZoneDropdownTile(
+          zoneLabel = strings.centerTapZoneLabel,
+          selectedAction = settings.centerTapAction,
+          isFa = isFa,
+          palette = palette,
+          onSelect = onSelectCenterTapAction,
+          modifier = Modifier.weight(1f).testTag("tap_zone_center_selector"),
+        )
+        TapZoneDropdownTile(
+          zoneLabel = strings.rightTapZoneLabel,
+          selectedAction = settings.rightTapAction,
+          isFa = isFa,
+          palette = palette,
+          onSelect = onSelectRightTapAction,
+          modifier = Modifier.weight(1f).testTag("tap_zone_right_selector"),
+        )
+      }
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+          Text(
+            text = strings.edgeBrightnessSwipeToggle,
+            style = MaterialTheme.typography.titleSmall,
+            color = palette.text,
+          )
+          Text(
+            text = strings.edgeBrightnessSwipeSub,
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.secondaryText,
+          )
+        }
+        Switch(
+          checked = settings.edgeBrightnessSwipeEnabled,
+          onCheckedChange = onToggleEdgeBrightnessSwipe,
+          colors =
+            SwitchDefaults.colors(
+              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
+              checkedTrackColor = palette.accent,
+            ),
+          modifier = Modifier.testTag("sheet_edge_brightness_switch"),
+        )
+      }
+
+      if (bookFormat.isReflowableText) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+              text = strings.doubleTapBookmarkToggle,
+              style = MaterialTheme.typography.titleSmall,
+              color = palette.text,
+            )
+            Text(
+              text = strings.doubleTapBookmarkSub,
+              style = MaterialTheme.typography.bodySmall,
+              color = palette.secondaryText,
+            )
+          }
+          Switch(
+            checked = settings.doubleTapBookmarkEnabled,
+            onCheckedChange = onToggleDoubleTapBookmark,
+            colors =
+              SwitchDefaults.colors(
+                checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
+                checkedTrackColor = palette.accent,
+              ),
+            modifier = Modifier.testTag("sheet_double_tap_bookmark_switch"),
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun TapZoneDropdownTile(
+  zoneLabel: String,
+  selectedAction: TapZoneAction,
+  isFa: Boolean,
+  palette: ReadingPalette,
+  onSelect: (TapZoneAction) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  var expanded by remember { mutableStateOf(false) }
+  Box(modifier = modifier) {
+    Surface(
+      shape = RoundedCornerShape(12.dp),
+      color = palette.controlSurface.copy(alpha = 0.72f),
+      border = BorderStroke(1.dp, palette.dockBorder),
+      modifier =
+        Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .clickable { expanded = true },
+    ) {
+      Column(
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
+        Text(
+          text = zoneLabel,
+          style = MaterialTheme.typography.labelSmall,
+          color = palette.secondaryText,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+          text = if (isFa) selectedAction.faLabel else selectedAction.label,
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = palette.accent,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+    }
+    DropdownMenu(
+      expanded = expanded,
+      onDismissRequest = { expanded = false },
+      containerColor = palette.dockSurface,
+    ) {
+      TapZoneAction.entries.forEach { action ->
+        DropdownMenuItem(
+          text = {
+            Text(
+              text = if (isFa) action.faLabel else action.label,
+              color = if (action == selectedAction) palette.accent else palette.text,
+            )
+          },
+          trailingIcon = {
+            if (action == selectedAction) {
+              Icon(Icons.Rounded.Check, contentDescription = null, tint = palette.accent, modifier = Modifier.size(16.dp))
+            }
+          },
+          onClick = {
+            expanded = false
+            onSelect(action)
+          },
+        )
+      }
     }
   }
 }
@@ -1358,3 +1554,303 @@ private fun ReaderFontOption.toComposeFontFamily(): FontFamily =
     ReaderFontOption.PLUS_JAKARTA -> PlusJakartaSansFamily
     ReaderFontOption.JETBRAINS_MONO -> JetBrainsMonoFontFamily
   }
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun FocusAudioSheet(
+  settings: ReaderSettings,
+  palette: ReadingPalette,
+  readerMode: ReaderMode,
+  sleepTimer: SleepTimerState,
+  activeSound: AmbientSoundType,
+  focusTimer: FocusTimerState,
+  onSelectSleepPreset: (SleepTimerPreset) -> Unit,
+  onSelectAmbientSound: (AmbientSoundType) -> Unit,
+  onChangeAmbientVolume: (Float) -> Unit,
+  onToggleFocusTimer: () -> Unit,
+  onResetFocusTimer: () -> Unit,
+  onUpdateFocusDurations: (Int, Int) -> Unit,
+  onDismiss: () -> Unit,
+) {
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  val strings = LocalAppStrings.current
+  val isFa = settings.appLanguage == AppLanguage.PERSIAN
+
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = sheetState,
+    containerColor = palette.dockSurface,
+    contentColor = palette.text,
+  ) {
+    Column(
+      modifier =
+        Modifier
+          .fillMaxWidth()
+          .heightIn(max = 600.dp)
+          .verticalScroll(rememberScrollState())
+          .padding(horizontal = 20.dp)
+          .padding(bottom = 28.dp),
+      verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Text(
+          text = strings.focusAndAudioTitle,
+          style = MaterialTheme.typography.titleMedium,
+          color = palette.text,
+        )
+        if (sleepTimer.isFadingOut) {
+          Text(
+            text = strings.fadeOutActiveLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = palette.accent,
+          )
+        }
+      }
+
+      // Section 1: Sleep Timer & Gentle Fade-Out (Listen Mode)
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Rounded.Bedtime, contentDescription = null, tint = palette.accent, modifier = Modifier.size(18.dp))
+            Text(
+              text = strings.sleepTimerLabel,
+              style = MaterialTheme.typography.titleSmall,
+              color = palette.text,
+            )
+          }
+          if (sleepTimer.preset != SleepTimerPreset.OFF) {
+            val badgeText =
+              if (sleepTimer.preset == SleepTimerPreset.END_OF_CHAPTER) {
+                if (isFa) sleepTimer.preset.faLabel else sleepTimer.preset.label
+              } else {
+                String.format("%02d:%02d", sleepTimer.remainingSeconds / 60, sleepTimer.remainingSeconds % 60)
+              }
+            Text(
+              text = badgeText,
+              style = MaterialTheme.typography.labelLarge,
+              fontWeight = FontWeight.SemiBold,
+              color = palette.accent,
+            )
+          }
+        }
+
+        FlowRow(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          SleepTimerPreset.entries.forEach { preset ->
+            val selected = sleepTimer.preset == preset
+            Surface(
+              shape = RoundedCornerShape(12.dp),
+              color =
+                if (selected) palette.accent.copy(alpha = 0.16f)
+                else palette.controlSurface.copy(alpha = 0.72f),
+              border = BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
+              modifier =
+                Modifier
+                  .clip(RoundedCornerShape(12.dp))
+                  .clickable { onSelectSleepPreset(preset) }
+                  .testTag("sleep_preset_${preset.name.lowercase()}"),
+            ) {
+              Text(
+                text = if (isFa) preset.faLabel else preset.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) palette.accent else palette.text,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+              )
+            }
+          }
+        }
+
+        if (readerMode == ReaderMode.LISTEN) {
+          Text(
+            text = strings.lockScreenControlsHint,
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.secondaryText,
+          )
+        }
+      }
+
+      HorizontalDivider(color = palette.divider)
+
+      // Section 2: Ambient Reading Soundscapes
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = palette.accent, modifier = Modifier.size(18.dp))
+          Text(
+            text = strings.ambientSoundscapesLabel,
+            style = MaterialTheme.typography.titleSmall,
+            color = palette.text,
+          )
+        }
+
+        FlowRow(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          AmbientSoundType.entries.forEach { sound ->
+            val selected = activeSound == sound
+            Surface(
+              shape = RoundedCornerShape(12.dp),
+              color =
+                if (selected) palette.accent.copy(alpha = 0.16f)
+                else palette.controlSurface.copy(alpha = 0.72f),
+              border = BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
+              modifier =
+                Modifier
+                  .clip(RoundedCornerShape(12.dp))
+                  .clickable { onSelectAmbientSound(sound) }
+                  .testTag("ambient_sound_${sound.name.lowercase()}"),
+            ) {
+              Text(
+                text = if (isFa) sound.faLabel else sound.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) palette.accent else palette.text,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+              )
+            }
+          }
+        }
+
+        if (activeSound != AmbientSoundType.NONE) {
+          LabeledSliderRow(
+            label = strings.ambientVolumeLabel,
+            valueLabel = "${(settings.ambientVolume * 100f).roundToInt()}%",
+            value = settings.ambientVolume,
+            valueRange = 0.05f..1.0f,
+            palette = palette,
+            testTag = "ambient_volume_slider",
+            onValueChange = onChangeAmbientVolume,
+          )
+        }
+      }
+
+      HorizontalDivider(color = palette.divider)
+
+      // Section 3: Reading Focus Timer (Pomodoro)
+      Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Rounded.Timer, contentDescription = null, tint = palette.accent, modifier = Modifier.size(18.dp))
+            Text(
+              text = strings.focusTimerLabel,
+              style = MaterialTheme.typography.titleSmall,
+              color = palette.text,
+            )
+          }
+          if (focusTimer.completedCycles > 0) {
+            Text(
+              text = strings.focusCyclesLabel(focusTimer.completedCycles),
+              style = MaterialTheme.typography.labelSmall,
+              color = palette.accent,
+            )
+          }
+        }
+
+        Surface(
+          shape = RoundedCornerShape(18.dp),
+          color = palette.controlSurface.copy(alpha = 0.55f),
+          border = BorderStroke(1.dp, palette.dockBorder),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+          ) {
+            Column {
+              Text(
+                text = if (focusTimer.isBreakPhase) strings.breakPhaseLabel else strings.focusPhaseLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = palette.accent,
+              )
+              Text(
+                text = String.format("%02d:%02d", focusTimer.remainingSeconds / 60, focusTimer.remainingSeconds % 60),
+                fontFamily = LiterataFontFamily,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+                color = palette.text,
+              )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              Button(
+                onClick = onToggleFocusTimer,
+                shape = RoundedCornerShape(12.dp),
+                colors =
+                  ButtonDefaults.buttonColors(
+                    containerColor = palette.accent,
+                    contentColor = if (palette.isDark) Color(0xFF082115) else Color.White,
+                  ),
+                modifier = Modifier.testTag("focus_timer_toggle_button"),
+              ) {
+                Icon(
+                  imageVector = if (focusTimer.isRunning) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                  contentDescription = null,
+                  modifier = Modifier.size(17.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(if (focusTimer.isRunning) strings.focusPauseAction else strings.focusStartAction)
+              }
+              OutlinedButton(
+                onClick = onResetFocusTimer,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, palette.dockBorder),
+                modifier = Modifier.testTag("focus_timer_reset_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Refresh,
+                  contentDescription = strings.focusResetAction,
+                  tint = palette.text,
+                  modifier = Modifier.size(17.dp),
+                )
+              }
+            }
+          }
+        }
+
+        // Preset Work/Break ratios
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          listOf(15 to 3, 25 to 5, 45 to 10, 60 to 15).forEach { (w, b) ->
+            val selected = focusTimer.workMinutes == w && focusTimer.breakMinutes == b
+            Surface(
+              shape = RoundedCornerShape(10.dp),
+              color =
+                if (selected) palette.accent.copy(alpha = 0.16f)
+                else palette.controlSurface.copy(alpha = 0.65f),
+              border = BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
+              modifier =
+                Modifier
+                  .weight(1f)
+                  .clip(RoundedCornerShape(10.dp))
+                  .clickable { onUpdateFocusDurations(w, b) },
+            ) {
+              Text(
+                text = "${w}/${b}m",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) palette.accent else palette.text,
+                modifier = Modifier.padding(vertical = 8.dp).wrapContentWidth(),
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+}

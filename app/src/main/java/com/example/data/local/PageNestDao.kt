@@ -207,4 +207,20 @@ interface PageNestDao {
 
   @Query("UPDATE writer_books SET publishedBookId = :publishedBookId, updatedAt = :updatedAt WHERE id = :bookId")
   suspend fun updateWriterBookPublishedId(bookId: String, publishedBookId: String, updatedAt: Long)
+
+  @Query(
+    """
+    UPDATE writer_books
+    SET coverThemeId = :coverThemeId,
+        coverImagePath = :coverImagePath,
+        updatedAt = :updatedAt
+    WHERE id = :bookId
+    """
+  )
+  suspend fun updateWriterBookCover(
+    bookId: String,
+    coverThemeId: Int,
+    coverImagePath: String?,
+    updatedAt: Long,
+  )
 }

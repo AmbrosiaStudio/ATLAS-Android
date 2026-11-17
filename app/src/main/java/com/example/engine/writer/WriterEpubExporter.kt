@@ -2,10 +2,13 @@ package com.example.engine.writer
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.text.Layout
@@ -19,15 +22,37 @@ import java.io.FileOutputStream
 import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+data class StudioCoverTheme(
+  val id: Int,
+  val label: String,
+  val faLabel: String,
+  val topHex: String,
+  val bottomHex: String,
+  val accentHex: String,
+  val textHex: String = "#FAF8F4",
+)
+
 /**
  * Packages manuscripts authored in PageNest Studio (Beta) into standards-compliant EPUB 3.0 books
- * with auto-generated editorial cover art, TOC, RTL/LTR metadata, and clean XHTML formatting.
+ * with customizable editorial cover art, TOC, RTL/LTR metadata, and clean XHTML formatting.
  */
 object WriterEpubExporter {
+
+  val coverThemes: List<StudioCoverTheme> =
+    listOf(
+      StudioCoverTheme(0, "Botanical", "گیاه‌شناسی", "#1F3A2F", "#12221B", "#7BC6A0"),
+      StudioCoverTheme(1, "Midnight Violet", "بنفش شب", "#2C2242", "#171126", "#B7A6EB"),
+      StudioCoverTheme(2, "Terracotta", "تراکوتا", "#4D2B22", "#281510", "#E8AE98"),
+      StudioCoverTheme(3, "Slate Ocean", "اقیانوس", "#1F3340", "#111D25", "#8AC0DB"),
+      StudioCoverTheme(4, "Obsidian Gold", "طلای تیره", "#201E1A", "#0F0E0C", "#DFB86C"),
+      StudioCoverTheme(5, "Parchment Ink", "کاغذ کهن", "#EAE2D3", "#D8CBB4", "#2B5944", "#1F2421"),
+    )
+
+  fun coverThemeById(themeId: Int): StudioCoverTheme =
+    coverThemes.firstOrNull { it.id == themeId } ?: coverThemes.first()
 
   fun countWords(text: String): Int {
     if (text.isBlank()) return 0
@@ -298,44 +323,87 @@ object WriterEpubExporter {
     }
 
   private fun renderStudioCoverBytes(book: WriterBookEntity): ByteArray {
-    val palettes =
-      listOf(
-        Triple("#1F3A2F", "#12221B", "#7BC6A0"), // Deep Botanical Green
-        Triple("#2C2242", "#171126", "#B7A6EB"), // Midnight Violet
-        Triple("#4D2B22", "#281510", "#E8AE98"), // Warm Terracotta
-        Triple("#1F3340", "#111D25", "#8AC0DB"), // Slate Ocean
-      )
-    val palette = palettes[abs(book.id.hashCode()) % palettes.size]
-    val bmp = Bitmap.createBitmap(420, 620, Bitmap.Config.ARGB_8888)
+    val width = 420
+    val height = 620
+    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
+    val theme = coverThemeById(book.coverThemeId)
 
-    val bgPaint =
-      Paint().apply {
-        shader =
-          LinearGradient(
-            0f,
-            0f,
-            420f,
-            620f,
-            intArrayOf(Color.parseColor(palette.first), Color.parseColor(palette.second)),
-            null,
-            Shader.TileMode.CLAMP,
-          )
-      }
-    canvas.drawRect(0f, 0f, 420f, 620f, bgPaint)
+    val customCoverBmp =
+      book.coverImagePath
+        ?.let { File(it) }
+        ?.takeIf { it.exists() }
+        ?.let { file -> runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull() }
+
+    val textColorInt: Int
+    val accentColorInt: Int
+
+    if (customCoverBmp != null) {
+      // Center-crop photo onto cover canvas + readable gradient scrims
+      val srcW = customCoverBmp.width.toFloat().coerceAtLeast(1f)
+      val srcH = customCoverBmp.height.toFloat().coerceAtLeast(1f)
+      val dstRatio = width.toFloat() / height.toFloat()
+      val srcRatio = srcW / srcH
+      val srcRect =
+        if (srcRatio > dstRatio) {
+          val cropW = (srcH * dstRatio).toInt().coerceAtLeast(1)
+          val left = ((customCoverBmp.width - cropW) / 2).coerceAtLeast(0)
+          Rect(left, 0, left + cropW, customCoverBmp.height)
+        } else {
+          val cropH = (srcW / dstRatio).toInt().coerceAtLeast(1)
+          val top = ((customCoverBmp.height - cropH) / 2).coerceAtLeast(0)
+          Rect(0, top, customCoverBmp.width, top + cropH)
+        }
+      canvas.drawBitmap(customCoverBmp, srcRect, RectF(0f, 0f, width.toFloat(), height.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
+      customCoverBmp.recycle()
+
+      val scrimPaint =
+        Paint().apply {
+          shader =
+            LinearGradient(
+              0f,
+              0f,
+              0f,
+              height.toFloat(),
+              intArrayOf(0xAA0D1110.toInt(), 0x550D1110, 0xCC0D1110.toInt()),
+              floatArrayOf(0f, 0.45f, 1f),
+              Shader.TileMode.CLAMP,
+            )
+        }
+      canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), scrimPaint)
+      textColorInt = Color.parseColor("#FAF8F4")
+      accentColorInt = Color.parseColor("#BFEAD4")
+    } else {
+      val bgPaint =
+        Paint().apply {
+          shader =
+            LinearGradient(
+              0f,
+              0f,
+              width.toFloat(),
+              height.toFloat(),
+              intArrayOf(Color.parseColor(theme.topHex), Color.parseColor(theme.bottomHex)),
+              null,
+              Shader.TileMode.CLAMP,
+            )
+        }
+      canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+      textColorInt = Color.parseColor(theme.textHex)
+      accentColorInt = Color.parseColor(theme.accentHex)
+    }
 
     val borderPaint =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 2f
-        color = Color.parseColor(palette.third)
-        alpha = 140
+        color = accentColorInt
+        alpha = 145
       }
     canvas.drawRect(26f, 26f, 394f, 594f, borderPaint)
 
     val badgePaint =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor(palette.third)
+        color = accentColorInt
         textSize = 14f
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
       }
@@ -343,7 +411,7 @@ object WriterEpubExporter {
 
     val titlePaint =
       TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FAF8F4")
+        color = textColorInt
         textSize = 36f
         typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
       }
@@ -365,7 +433,7 @@ object WriterEpubExporter {
 
     val authorPaint =
       TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor(palette.third)
+        color = accentColorInt
         textSize = 19f
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
       }

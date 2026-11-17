@@ -8,6 +8,7 @@ import com.example.data.local.BookEntity
 import com.example.data.local.BookmarkEntity
 import com.example.data.local.HighlightEntity
 import com.example.data.repository.ReaderRepository
+import com.example.engine.audio.AmbientSoundPlayer
 import com.example.engine.cbz.CbzEngine
 import com.example.engine.cbz.CbzSession
 import com.example.engine.epub.EpubParser
@@ -20,6 +21,9 @@ import com.example.engine.translate.TextTranslator
 import com.example.engine.translate.TranslationOutcome
 import com.example.engine.tts.ListenState
 import com.example.engine.tts.ReadAloudController
+import com.example.engine.tts.TtsMediaBridge
+import com.example.model.AmbientSoundType
+import com.example.model.AppLanguage
 import com.example.model.BookFormat
 import com.example.model.BookSearchMatch
 import com.example.model.ComfortPreset
@@ -34,6 +38,8 @@ import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
 import com.example.model.SelectionAnchor
+import com.example.model.SleepTimerPreset
+import com.example.model.TapZoneAction
 import com.example.model.TextAlignOption
 import java.io.File
 import kotlin.math.abs
@@ -47,6 +53,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -77,7 +85,23 @@ enum class ReaderSheetType {
   THEME_BRIGHTNESS,
   TYPOGRAPHY,
   INDEX_TOOLS,
+  FOCUS_AUDIO,
 }
+
+data class SleepTimerState(
+  val preset: SleepTimerPreset = SleepTimerPreset.OFF,
+  val remainingSeconds: Int = 0,
+  val isFadingOut: Boolean = false,
+)
+
+data class FocusTimerState(
+  val isRunning: Boolean = false,
+  val isBreakPhase: Boolean = false,
+  val remainingSeconds: Int = 25 * 60,
+  val workMinutes: Int = 25,
+  val breakMinutes: Int = 5,
+  val completedCycles: Int = 0,
+)
 
 data class ReaderUiState(
   val book: BookEntity? = null,
@@ -104,6 +128,10 @@ data class ReaderUiState(
   val searchResults: List<BookSearchMatch> = emptyList(),
   val isSearching: Boolean = false,
   val listenState: ListenState = ListenState(),
+  val sleepTimer: SleepTimerState = SleepTimerState(),
+  val activeAmbientSound: AmbientSoundType = AmbientSoundType.NONE,
+  val focusTimer: FocusTimerState = FocusTimerState(),
+  val liveBrightnessPreview: Float? = null,
   val sessionElapsedSeconds: Int = 0,
   val toastMessage: String? = null,
 ) {
@@ -184,19 +212,27 @@ class ReaderViewModel(
   private val textTranslator: TextTranslator,
 ) : ViewModel() {
 
-  private val readAloud = ReadAloudController(context)
+  private val appContext = context.applicationContext
+  private val readAloud = ReadAloudController(appContext)
+  private val ambientPlayer = AmbientSoundPlayer()
 
   private val docState = MutableStateFlow<ReaderDocumentState>(ReaderDocumentState.Loading)
   private val positionState = MutableStateFlow(PositionState())
   private val chromeState = MutableStateFlow(ChromeState())
   private val searchState = MutableStateFlow(SearchState())
   private val translationState = MutableStateFlow<TranslationUiState>(TranslationUiState.Idle)
+  private val sleepTimerState = MutableStateFlow(SleepTimerState())
+  private val activeAmbientSound = MutableStateFlow(AmbientSoundType.NONE)
+  private val focusTimerState = MutableStateFlow(FocusTimerState())
+  private val liveBrightnessPreview = MutableStateFlow<Float?>(null)
   private val sessionElapsedSeconds = MutableStateFlow(0)
 
   private var saveJob: Job? = null
   private var searchJob: Job? = null
   private var translateJob: Job? = null
   private var readingTimerJob: Job? = null
+  private var sleepTimerJob: Job? = null
+  private var focusTimerJob: Job? = null
   private var unflushedReadingSeconds: Int = 0
   private val visitedPageKeysInSession = mutableSetOf<String>()
   private var isSessionPageBaselineRecorded = false
@@ -228,6 +264,13 @@ class ReaderViewModel(
     val isSearching: Boolean = false,
   )
 
+  private data class AudioFocusAux(
+    val sleep: SleepTimerState,
+    val ambient: AmbientSoundType,
+    val focus: FocusTimerState,
+    val brightnessPreview: Float?,
+  )
+
   private data class AuxTuple(
     val doc: ReaderDocumentState,
     val pos: PositionState,
@@ -237,6 +280,7 @@ class ReaderViewModel(
     val customFonts: List<CustomFontEntry>,
     val translation: TranslationUiState,
     val sessionSeconds: Int,
+    val audioFocus: AudioFocusAux,
   )
 
   val uiState: StateFlow<ReaderUiState> =
@@ -255,9 +299,15 @@ class ReaderViewModel(
           fontManager.customFontsFlow,
           translationState,
           sessionElapsedSeconds,
-        ) { tts, fonts, trans, sec -> SessionAux(tts, fonts, trans, sec) },
+          combine(
+            sleepTimerState,
+            activeAmbientSound,
+            focusTimerState,
+            liveBrightnessPreview,
+          ) { sl, am, fo, bp -> AudioFocusAux(sl, am, fo, bp) },
+        ) { tts, fonts, trans, sec, af -> SessionAux(tts, fonts, trans, sec, af) },
       ) { d, p, c, s, sa ->
-        AuxTuple(d, p, c, s, sa.tts, sa.customFonts, sa.translation, sa.sessionSeconds)
+        AuxTuple(d, p, c, s, sa.tts, sa.customFonts, sa.translation, sa.sessionSeconds, sa.audioFocus)
       },
     ) { book, settings, bookmarks, highlights, aux ->
       ReaderUiState(
@@ -285,6 +335,10 @@ class ReaderViewModel(
         searchResults = aux.search.results,
         isSearching = aux.search.isSearching,
         listenState = aux.tts,
+        sleepTimer = aux.audioFocus.sleep,
+        activeAmbientSound = aux.audioFocus.ambient,
+        focusTimer = aux.audioFocus.focus,
+        liveBrightnessPreview = aux.audioFocus.brightnessPreview,
         sessionElapsedSeconds = aux.sessionSeconds,
         toastMessage = aux.chrome.toastMessage,
       )
@@ -299,11 +353,14 @@ class ReaderViewModel(
     val customFonts: List<CustomFontEntry>,
     val translation: TranslationUiState,
     val sessionSeconds: Int,
+    val audioFocus: AudioFocusAux,
   )
 
   init {
     loadDocument()
     observeTtsConfig()
+    observeMediaControlsBridge()
+    observeFocusConfigSync()
   }
 
   private fun observeTtsConfig() {
@@ -313,6 +370,86 @@ class ReaderViewModel(
       }.collect { (cfg, ready) ->
         if (ready) {
           readAloud.applyConfig(cfg.first, cfg.second, cfg.third)
+        }
+      }
+    }
+  }
+
+  private fun observeFocusConfigSync() {
+    viewModelScope.launch {
+      readerRepository.settingsFlow.collect { settings ->
+        focusTimerState.update { st ->
+          if (!st.isRunning && st.completedCycles == 0 && !st.isBreakPhase &&
+            st.remainingSeconds == st.workMinutes * 60
+          ) {
+            st.copy(
+              workMinutes = settings.focusWorkMinutes,
+              breakMinutes = settings.focusBreakMinutes,
+              remainingSeconds = settings.focusWorkMinutes * 60,
+            )
+          } else {
+            st.copy(
+              workMinutes = settings.focusWorkMinutes,
+              breakMinutes = settings.focusBreakMinutes,
+            )
+          }
+        }
+      }
+    }
+  }
+
+  private fun observeMediaControlsBridge() {
+    TtsMediaBridge.callbacks =
+      object : com.example.engine.tts.TtsMediaCallbacks {
+        override fun onMediaPlay() {
+          if (chromeState.value.readerMode != ReaderMode.LISTEN) {
+            chromeState.update { it.copy(readerMode = ReaderMode.LISTEN) }
+          }
+          if (uiState.value.listenState.totalChunks == 0) {
+            prepareTtsForCurrentChapter(autoPlay = true)
+          } else {
+            readAloud.play()
+          }
+        }
+
+        override fun onMediaPause() {
+          readAloud.pause()
+        }
+
+        override fun onMediaNext() {
+          skipTtsNext()
+        }
+
+        override fun onMediaPrevious() {
+          skipTtsPrevious()
+        }
+
+        override fun onMediaStop() {
+          readAloud.stop()
+          chromeState.update { it.copy(readerMode = ReaderMode.READ) }
+          TtsMediaBridge.stopPlaybackService(appContext)
+        }
+      }
+
+    viewModelScope.launch {
+      combine(
+        readAloud.state,
+        positionState,
+        docState,
+      ) { listen, pos, doc ->
+        val chapterTitle =
+          (doc as? ReaderDocumentState.EpubReady)?.book?.chapters?.getOrNull(pos.chapterOrPage)?.title
+            ?: "Section ${pos.chapterOrPage + 1}"
+        Triple(listen.isPlaying, chapterTitle, uiState.value.book?.title ?: "PageNest")
+      }.collect { (playing, chTitle, bookTitle) ->
+        if (playing || TtsMediaBridge.serviceRunning) {
+          TtsMediaBridge.syncState(
+            context = appContext,
+            bookId = bookId,
+            bookTitle = bookTitle,
+            chapterTitle = chTitle,
+            isPlaying = playing,
+          )
         }
       }
     }
@@ -477,6 +614,8 @@ class ReaderViewModel(
       prepareTtsForCurrentChapter()
     } else {
       readAloud.pause()
+      selectSleepTimer(SleepTimerPreset.OFF)
+      TtsMediaBridge.stopPlaybackService(appContext)
     }
   }
 
@@ -488,10 +627,162 @@ class ReaderViewModel(
     }
   }
 
+  fun skipTtsNext() {
+    if (!readAloud.nextChunk()) {
+      val doc = docState.value as? ReaderDocumentState.EpubReady ?: return
+      val next = positionState.value.chapterOrPage + 1
+      if (next < doc.book.chapters.size) {
+        goToChapter(next)
+        prepareTtsForCurrentChapter(autoPlay = uiState.value.listenState.isPlaying)
+      }
+    }
+  }
+
+  fun skipTtsPrevious() {
+    if (!readAloud.previousChunk()) {
+      val prev = positionState.value.chapterOrPage - 1
+      if (prev >= 0) {
+        goToChapter(prev)
+        prepareTtsForCurrentChapter(autoPlay = uiState.value.listenState.isPlaying)
+      }
+    }
+  }
+
   fun cycleTtsSpeed() {
     val next = readAloud.cycleSpeed()
     viewModelScope.launch {
       readerRepository.updateSettings { it.copy(ttsSpeechRate = next) }
+    }
+  }
+
+  fun selectSleepTimer(preset: SleepTimerPreset) {
+    sleepTimerJob?.cancel()
+    sleepTimerJob = null
+    readAloud.setVolumeMultiplier(1.0f)
+
+    if (preset == SleepTimerPreset.OFF) {
+      sleepTimerState.value = SleepTimerState()
+      return
+    }
+    if (preset == SleepTimerPreset.END_OF_CHAPTER) {
+      sleepTimerState.value = SleepTimerState(preset = preset, remainingSeconds = 0, isFadingOut = false)
+      return
+    }
+
+    val totalSeconds = preset.minutes * 60
+    sleepTimerState.value = SleepTimerState(preset = preset, remainingSeconds = totalSeconds, isFadingOut = false)
+    sleepTimerJob =
+      viewModelScope.launch {
+        var remaining = totalSeconds
+        while (remaining > 0) {
+          delay(1000L)
+          remaining--
+          val fading = remaining in 1..15
+          if (fading) {
+            readAloud.setVolumeMultiplier((remaining / 15f).coerceIn(0.08f, 1.0f))
+          }
+          sleepTimerState.value =
+            SleepTimerState(
+              preset = preset,
+              remainingSeconds = remaining,
+              isFadingOut = fading,
+            )
+        }
+        readAloud.pause()
+        readAloud.setVolumeMultiplier(1.0f)
+        sleepTimerState.value = SleepTimerState()
+        val isFa = uiState.value.settings.appLanguage == AppLanguage.PERSIAN
+        showToast(if (isFa) "تایمر خواب پخش را متوقف کرد" else "Sleep timer paused playback")
+      }
+  }
+
+  fun selectAmbientSound(type: AmbientSoundType) {
+    activeAmbientSound.value = type
+    ambientPlayer.start(type, uiState.value.settings.ambientVolume)
+  }
+
+  fun setAmbientVolume(volume: Float) {
+    val safe = volume.coerceIn(0.05f, 1.0f)
+    ambientPlayer.setVolume(safe)
+    viewModelScope.launch {
+      readerRepository.updateSettings { it.copy(ambientVolume = safe) }
+    }
+  }
+
+  fun toggleFocusTimer() {
+    val current = focusTimerState.value
+    if (current.isRunning) {
+      focusTimerJob?.cancel()
+      focusTimerJob = null
+      focusTimerState.update { it.copy(isRunning = false) }
+      return
+    }
+
+    focusTimerState.update { it.copy(isRunning = true) }
+    focusTimerJob =
+      viewModelScope.launch {
+        while (true) {
+          delay(1000L)
+          val st = focusTimerState.value
+          if (!st.isRunning) break
+          if (st.remainingSeconds > 1) {
+            focusTimerState.update { it.copy(remainingSeconds = it.remainingSeconds - 1) }
+          } else {
+            val isFa = uiState.value.settings.appLanguage == AppLanguage.PERSIAN
+            if (!st.isBreakPhase) {
+              focusTimerState.update {
+                it.copy(
+                  isRunning = false,
+                  isBreakPhase = true,
+                  completedCycles = it.completedCycles + 1,
+                  remainingSeconds = it.breakMinutes * 60,
+                )
+              }
+              showToast(if (isFa) "زمان تمرکز کامل شد! وقت استراحت کوتاه" else "Focus session complete! Time for a short break")
+            } else {
+              focusTimerState.update {
+                it.copy(
+                  isRunning = false,
+                  isBreakPhase = false,
+                  remainingSeconds = it.workMinutes * 60,
+                )
+              }
+              showToast(if (isFa) "استراحت پایان یافت! آماده مطالعه" else "Break finished! Ready for focus")
+            }
+            break
+          }
+        }
+      }
+  }
+
+  fun resetFocusTimer() {
+    focusTimerJob?.cancel()
+    focusTimerJob = null
+    val st = focusTimerState.value
+    focusTimerState.value =
+      FocusTimerState(
+        isRunning = false,
+        isBreakPhase = false,
+        remainingSeconds = st.workMinutes * 60,
+        workMinutes = st.workMinutes,
+        breakMinutes = st.breakMinutes,
+        completedCycles = st.completedCycles,
+      )
+  }
+
+  fun setFocusDurations(workMinutes: Int, breakMinutes: Int) {
+    val safeWork = workMinutes.coerceIn(5, 90)
+    val safeBreak = breakMinutes.coerceIn(1, 30)
+    viewModelScope.launch {
+      readerRepository.updateSettings {
+        it.copy(focusWorkMinutes = safeWork, focusBreakMinutes = safeBreak)
+      }
+    }
+    if (!focusTimerState.value.isRunning) {
+      focusTimerState.update { st ->
+        val nextSec = if (st.isBreakPhase) safeBreak * 60 else safeWork * 60
+        st.copy(workMinutes = safeWork, breakMinutes = safeBreak, remainingSeconds = nextSec)
+      }
     }
   }
 
@@ -506,6 +797,13 @@ class ReaderViewModel(
           return@launch
         }
         readAloud.setContent(text) {
+          if (sleepTimerState.value.preset == SleepTimerPreset.END_OF_CHAPTER) {
+            sleepTimerState.value = SleepTimerState()
+            readAloud.setVolumeMultiplier(1.0f)
+            val isFa = uiState.value.settings.appLanguage == AppLanguage.PERSIAN
+            showToast(if (isFa) "تایمر خواب در پایان فصل متوقف شد" else "Sleep timer stopped at end of chapter")
+            return@setContent
+          }
           val next = positionState.value.chapterOrPage + 1
           if (next < doc.book.chapters.size) {
             goToChapter(next)
@@ -795,7 +1093,32 @@ class ReaderViewModel(
   }
 
   fun setBrightnessOverride(brightness: Float) {
+    liveBrightnessPreview.value = null
     viewModelScope.launch { readerRepository.updateSettings { it.copy(brightnessOverride = brightness) } }
+  }
+
+  fun previewBrightness(brightness: Float?) {
+    liveBrightnessPreview.value = brightness?.coerceIn(0.04f, 1.0f)
+  }
+
+  fun setLeftTapAction(action: TapZoneAction) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(leftTapAction = action) } }
+  }
+
+  fun setCenterTapAction(action: TapZoneAction) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(centerTapAction = action) } }
+  }
+
+  fun setRightTapAction(action: TapZoneAction) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(rightTapAction = action) } }
+  }
+
+  fun setEdgeBrightnessSwipeEnabled(enabled: Boolean) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(edgeBrightnessSwipeEnabled = enabled) } }
+  }
+
+  fun setDoubleTapBookmarkEnabled(enabled: Boolean) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(doubleTapBookmarkEnabled = enabled) } }
   }
 
   fun setFontOption(font: ReaderFontOption) {
@@ -1003,6 +1326,11 @@ class ReaderViewModel(
 
   override fun onCleared() {
     super.onCleared()
+    sleepTimerJob?.cancel()
+    focusTimerJob?.cancel()
+    TtsMediaBridge.callbacks = null
+    TtsMediaBridge.stopPlaybackService(appContext)
+    ambientPlayer.release()
     readAloud.release()
     pdfSessionRef?.close()
     pdfSessionRef = null

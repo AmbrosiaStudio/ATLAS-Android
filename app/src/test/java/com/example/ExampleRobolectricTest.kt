@@ -682,4 +682,167 @@ class ExampleRobolectricTest {
       )
     assertEquals(0, com.example.model.StreakCalculator.computeActiveStreak(brokenMap))
   }
+
+  @Test
+  fun `v3_2_0 tap zone settings ambient focus prefs and tap zone resolver persist accurately`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val store = com.example.data.local.ReaderPreferencesDataStore(context)
+
+    store.updateSettings {
+      it.copy(
+        leftTapAction = com.example.model.TapZoneAction.QUICK_BOOKMARK,
+        centerTapAction = com.example.model.TapZoneAction.TOGGLE_CONTROLS,
+        rightTapAction = com.example.model.TapZoneAction.NEXT_PAGE,
+        edgeBrightnessSwipeEnabled = false,
+        doubleTapBookmarkEnabled = true,
+        ambientVolume = 0.72f,
+        focusWorkMinutes = 45,
+        focusBreakMinutes = 10,
+      )
+    }
+
+    val loaded = store.settingsFlow.first()
+    assertEquals(com.example.model.TapZoneAction.QUICK_BOOKMARK, loaded.leftTapAction)
+    assertEquals(com.example.model.TapZoneAction.TOGGLE_CONTROLS, loaded.centerTapAction)
+    assertEquals(com.example.model.TapZoneAction.NEXT_PAGE, loaded.rightTapAction)
+    assertTrue(!loaded.edgeBrightnessSwipeEnabled)
+    assertTrue(loaded.doubleTapBookmarkEnabled)
+    assertEquals(0.72f, loaded.ambientVolume, 0.001f)
+    assertEquals(45, loaded.focusWorkMinutes)
+    assertEquals(10, loaded.focusBreakMinutes)
+
+    assertEquals(
+      com.example.model.TapZoneAction.QUICK_BOOKMARK,
+      com.example.ui.reader.resolveTapZoneAction(
+        tapOffset = androidx.compose.ui.geometry.Offset(100f, 100f),
+        containerWidthPx = 1000,
+        settings = loaded,
+      ),
+    )
+    assertEquals(
+      com.example.model.TapZoneAction.TOGGLE_CONTROLS,
+      com.example.ui.reader.resolveTapZoneAction(
+        tapOffset = androidx.compose.ui.geometry.Offset(500f, 100f),
+        containerWidthPx = 1000,
+        settings = loaded,
+      ),
+    )
+    assertEquals(
+      com.example.model.TapZoneAction.NEXT_PAGE,
+      com.example.ui.reader.resolveTapZoneAction(
+        tapOffset = androidx.compose.ui.geometry.Offset(900f, 100f),
+        containerWidthPx = 1000,
+        settings = loaded,
+      ),
+    )
+  }
+
+  @Test
+  fun `opds catalog parser parses gutendex json and atom opds xml cleanly`() {
+    val sampleJson =
+      """
+      {
+        "count": 2,
+        "results": [
+          {
+            "id": 1342,
+            "title": "Pride and Prejudice",
+            "authors": [{"name": "Austen, Jane"}],
+            "languages": ["en"],
+            "summaries": ["A classic manners novel."],
+            "formats": {
+              "image/jpeg": "https://example.org/1342.jpg",
+              "application/epub+zip": "https://example.org/1342.epub"
+            }
+          },
+          {
+            "id": 9999,
+            "title": "No Epub Entry",
+            "authors": [{"name": "Anon"}],
+            "languages": ["en"],
+            "formats": {"text/plain": "https://example.org/9999.txt"}
+          }
+        ]
+      }
+      """.trimIndent()
+
+    val gutendexItems = com.example.data.catalog.OpdsCatalogRepository.parseGutendexJson(sampleJson)
+    assertEquals(1, gutendexItems.size)
+    assertEquals("Pride and Prejudice", gutendexItems[0].title)
+    assertEquals("Austen, Jane", gutendexItems[0].author)
+    assertEquals("https://example.org/1342.epub", gutendexItems[0].epubDownloadUrl)
+    assertEquals("https://example.org/1342.jpg", gutendexItems[0].coverUrl)
+
+    val sampleOpdsXml =
+      """
+      <?xml version="1.0" encoding="utf-8"?>
+      <feed xmlns="http://www.w3.org/2005/Atom" xmlns:dcterms="http://purl.org/dc/terms/">
+        <entry>
+          <id>urn:uuid:se-1</id>
+          <title>Meditations</title>
+          <author><name>Marcus Aurelius</name></author>
+          <dcterms:language>en</dcterms:language>
+          <summary>Stoic personal notes.</summary>
+          <link rel="http://opds-spec.org/image/thumbnail" type="image/jpeg" href="/covers/meditations.jpg"/>
+          <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/ebooks/meditations.epub"/>
+        </entry>
+      </feed>
+      """.trimIndent()
+
+    val opdsItems =
+      com.example.data.catalog.OpdsCatalogRepository.parseOpdsAtomXml(
+        xmlText = sampleOpdsXml,
+        baseUrl = "https://standardebooks.org/feeds/opds/all",
+        source = com.example.data.catalog.CatalogSource.STANDARD_EBOOKS,
+      )
+    assertEquals(1, opdsItems.size)
+    assertEquals("Meditations", opdsItems[0].title)
+    assertEquals("Marcus Aurelius", opdsItems[0].author)
+    assertEquals("https://standardebooks.org/ebooks/meditations.epub", opdsItems[0].epubDownloadUrl)
+    assertEquals("https://standardebooks.org/covers/meditations.jpg", opdsItems[0].coverUrl)
+  }
+
+  @Test
+  fun `studio v5 supports cover theme persistence and chapter reordering in epub export`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      val libraryRepo =
+        com.example.data.repository.LibraryRepository(
+          context = context,
+          dao = dao,
+          epubParser = EpubParser(context),
+          pdfEngine = com.example.engine.pdf.PdfEngine(context),
+        )
+      val writerRepo = com.example.data.repository.WriterRepository(context, dao, libraryRepo)
+      val book = writerRepo.createManuscript("Cover Craft", "Amir", "Notes", isRtl = false)
+      val ch2 = writerRepo.addChapter(book.id, "Second")
+      val initialChapters = dao.getWriterChapters(book.id)
+      assertEquals(2, initialChapters.size)
+
+      // Move chapter 2 earlier -> should become index 0
+      val moved = writerRepo.moveChapter(book.id, ch2.id, -1)
+      assertTrue(moved)
+      val reordered = dao.getWriterChapters(book.id)
+      assertEquals("Second", reordered[0].title)
+      assertEquals(0, reordered[0].orderIndex)
+      assertEquals(1, reordered[1].orderIndex)
+
+      // Persist cover theme 4 (Obsidian Gold)
+      writerRepo.updateBookCover(book.id, coverThemeId = 4)
+      val updatedBook = dao.getWriterBook(book.id)!!
+      assertEquals(4, updatedBook.coverThemeId)
+
+      val exported = com.example.engine.writer.WriterEpubExporter.buildEpubFile(context, updatedBook, reordered)
+      try {
+        val loaded = EpubParser(context).loadBook(exported, "v5-cover-test", "Fallback").getOrThrow()
+        assertEquals("Second", loaded.toc.first().title)
+      } finally {
+        exported.delete()
+      }
+    } finally {
+      db.close()
+    }
+  }
 }

@@ -144,6 +144,8 @@ data class WriterBookEntity(
   val createdAt: Long = System.currentTimeMillis(),
   val updatedAt: Long = System.currentTimeMillis(),
   val publishedBookId: String? = null,
+  val coverThemeId: Int = 0,
+  val coverImagePath: String? = null,
 )
 
 @Entity(

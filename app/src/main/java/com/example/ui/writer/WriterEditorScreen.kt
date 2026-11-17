@@ -37,9 +37,13 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Publish
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -111,6 +115,8 @@ fun WriterEditorScreen(
   var editorFontSizeSp by remember { mutableIntStateOf(17) }
   var showMoreMenu by remember { mutableStateOf(false) }
   var showDetailsDialog by remember { mutableStateOf(false) }
+  var showCoverStudioDialog by remember { mutableStateOf(false) }
+  var showReorderChaptersDialog by remember { mutableStateOf(false) }
   var showRenameChapterDialog by remember { mutableStateOf(false) }
   var showDeleteChapterDialog by remember { mutableStateOf(false) }
 
@@ -368,6 +374,24 @@ fun WriterEditorScreen(
                         showDetailsDialog = true
                       },
                     )
+                    DropdownMenuItem(
+                      leadingIcon = { Icon(Icons.Rounded.Palette, contentDescription = null) },
+                      text = { Text(strings.coverStudioAction) },
+                      onClick = {
+                        showMoreMenu = false
+                        showCoverStudioDialog = true
+                      },
+                    )
+                    if (uiState.chapters.size > 1) {
+                      DropdownMenuItem(
+                        leadingIcon = { Icon(Icons.Rounded.SwapVert, contentDescription = null) },
+                        text = { Text(strings.reorderChaptersAction) },
+                        onClick = {
+                          showMoreMenu = false
+                          showReorderChaptersDialog = true
+                        },
+                      )
+                    }
                     if (!book?.publishedBookId.isNullOrBlank()) {
                       DropdownMenuItem(
                         leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null) },
@@ -614,6 +638,89 @@ fun WriterEditorScreen(
       onConfirm = { t, a, s, rtl ->
         viewModel.updateBookDetails(t, a, s, rtl)
         showDetailsDialog = false
+      },
+    )
+  }
+
+  if (showCoverStudioDialog && book != null) {
+    StudioCoverDesignerDialog(
+      book = book,
+      isFa = isFa,
+      onDismiss = { showCoverStudioDialog = false },
+      onSaveCover = { themeId, pickedUri, clearCustomImage ->
+        viewModel.updateBookCover(themeId, pickedUri, clearCustomImage)
+        showCoverStudioDialog = false
+      },
+    )
+  }
+
+  if (showReorderChaptersDialog) {
+    AlertDialog(
+      onDismissRequest = { showReorderChaptersDialog = false },
+      containerColor = MaterialTheme.colorScheme.surface,
+      title = {
+        Text(
+          text = strings.reorderChaptersAction,
+          fontFamily = headingFont,
+          fontWeight = FontWeight.SemiBold,
+        )
+      },
+      text = {
+        Column(
+          modifier = Modifier.verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          uiState.chapters.forEachIndexed { idx, ch ->
+            Surface(
+              shape = RoundedCornerShape(12.dp),
+              color = MaterialTheme.colorScheme.surfaceVariant,
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+              modifier = Modifier.fillMaxWidth().testTag("reorder_chapter_row_${ch.id}"),
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+              ) {
+                Text(
+                  text = "${idx + 1}. ${if (ch.id == uiState.selectedChapterId) uiState.draftTitle.ifBlank { ch.title } else ch.title}",
+                  style = MaterialTheme.typography.bodyMedium,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.weight(1f),
+                )
+                Row {
+                  IconButton(
+                    onClick = { viewModel.moveChapter(ch.id, -1) },
+                    enabled = idx > 0,
+                    modifier = Modifier.testTag("move_chapter_up_${ch.id}"),
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.KeyboardArrowUp,
+                      contentDescription = strings.moveUpAction,
+                    )
+                  }
+                  IconButton(
+                    onClick = { viewModel.moveChapter(ch.id, +1) },
+                    enabled = idx < uiState.chapters.lastIndex,
+                    modifier = Modifier.testTag("move_chapter_down_${ch.id}"),
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.KeyboardArrowDown,
+                      contentDescription = strings.moveDownAction,
+                    )
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      confirmButton = {
+        Button(onClick = { showReorderChaptersDialog = false }) {
+          Text(strings.done)
+        }
       },
     )
   }

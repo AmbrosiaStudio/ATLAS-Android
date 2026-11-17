@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Coffee
@@ -106,6 +107,7 @@ import com.example.model.AppLanguage
 import com.example.model.ReaderFontOption
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.model.TapZoneAction
 import com.example.model.TipPromptMode
 import com.example.ui.i18n.LocalAppStrings
 import com.example.ui.monetization.PageNestProDialog
@@ -478,6 +480,60 @@ fun SettingsScreen(
                   subtitle = strings.adaptPdfColorsSub,
                   checked = uiState.settings.pdfThemeFilterEnabled,
                   onCheckedChange = viewModel::setPdfThemeFilter,
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Text(
+                  text = strings.tapZonesSection,
+                  style = MaterialTheme.typography.titleSmall,
+                  color = MaterialTheme.colorScheme.onSurface,
+                )
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  SettingsTapZoneTile(
+                    zoneLabel = strings.leftTapZoneLabel,
+                    selectedAction = uiState.settings.leftTapAction,
+                    isFa = isFa,
+                    onSelect = viewModel::setLeftTapAction,
+                    modifier = Modifier.weight(1f).testTag("settings_tap_zone_left"),
+                  )
+                  SettingsTapZoneTile(
+                    zoneLabel = strings.centerTapZoneLabel,
+                    selectedAction = uiState.settings.centerTapAction,
+                    isFa = isFa,
+                    onSelect = viewModel::setCenterTapAction,
+                    modifier = Modifier.weight(1f).testTag("settings_tap_zone_center"),
+                  )
+                  SettingsTapZoneTile(
+                    zoneLabel = strings.rightTapZoneLabel,
+                    selectedAction = uiState.settings.rightTapAction,
+                    isFa = isFa,
+                    onSelect = viewModel::setRightTapAction,
+                    modifier = Modifier.weight(1f).testTag("settings_tap_zone_right"),
+                  )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                ToggleSettingRow(
+                  title = strings.edgeBrightnessSwipeToggle,
+                  subtitle = strings.edgeBrightnessSwipeSub,
+                  checked = uiState.settings.edgeBrightnessSwipeEnabled,
+                  switchTestTag = "settings_edge_brightness_switch",
+                  onCheckedChange = viewModel::setEdgeBrightnessSwipeEnabled,
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                ToggleSettingRow(
+                  title = strings.doubleTapBookmarkToggle,
+                  subtitle = strings.doubleTapBookmarkSub,
+                  checked = uiState.settings.doubleTapBookmarkEnabled,
+                  switchTestTag = "settings_double_tap_bookmark_switch",
+                  onCheckedChange = viewModel::setDoubleTapBookmarkEnabled,
                 )
               }
             }
@@ -1286,49 +1342,109 @@ fun SettingsScreen(
           modifier = Modifier.verticalScroll(rememberScrollState()),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          ChangelogVersionBlock(
-            versionHeading = "v3.1.0 (Build ${BuildConfig.VERSION_CODE}) · Studio, Widgets & Reader Precision",
-            bullets =
-              listOf(
-                "NEW · PageNest Studio (Beta): full offline book-writing studio for authors with multi-chapter drafts, Markdown formatting toolbar, RTL/LTR script support, live autosave, Markdown export, and one-tap EPUB 3.0 publishing straight into your Library.",
-                "NEW · Reading Statistics Widget (4×2): tracks today's goal minutes, total pages read, all-time hours, active streak pill, and a 7-day mini activity bar chart directly on your home screen.",
-                "NEW · 1×1 Streak Flame Widget: compact launcher badge with custom flame icon and live daily streak counter; deep-links into Statistics.",
-                "UX · Removed cluttering Previous/Next Chapter buttons from inside the EPUB reader canvas for clean distraction-free reading.",
-                "FIX · Fixed Volume Up / Volume Down page turning bug where pressing a volume key once could skip through the rest of the book across chapters.",
-                "FIX · Fixed exact page-position restoration inside EPUB chapters on book reopen & cold app launch so PageNest resumes on the exact page you last read (never resetting to page 1 of the chapter), plus Lifecycle flush on app backgrounding.",
-              ),
-          )
-          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-          ChangelogVersionBlock(
-            versionHeading = "v3.0 · Collections, Formats, Statistics & Indie Support",
-            bullets =
-              listOf(
-                "NEW · Custom Shelves, Collections & Reading Status Filters (All, Reading, Unread, Finished, Favorites) plus Book Metadata & Cover Editor via Android Photo Picker.",
-                "NEW · Expanded Format Support: native TXT, Markdown (.md), FictionBook (.fb2), and Comic Archives (.cbz) alongside EPUB and PDF.",
-                "NEW · Reading Statistics Dashboard with interactive 7/14-day reading time chart, total pages read, active streak, and book progress trend curve.",
-                "NEW · Daily Streak Reminders (WorkManager local notifications) & Home Screen \"Continue Reading\" Glance Widget.",
-                "NEW · Tip Jar with configurable Iran & international support links, timed/random recommendations, and PageNest Pro supporter activation.",
-              ),
-          )
-          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-          ChangelogVersionBlock(
-            versionHeading = "v2.0 · Native Reading Engine & Comfort Upgrade",
-            bullets =
-              listOf(
-                "ENGINE · Replaced Chromium WebView with a 100% native Jetpack Compose EPUB reader engine — permanently eliminating renderer termination crashes (aw_browser_terminator code -1).",
-                "NEW · Battery-Saver Reading Mode (60Hz cap + simplified transitions/no blur) & Volume Key page turning.",
-                "NEW · Added 2 new themes, Black & White Night mode, tactile Paper Texture mode, and reading comfort presets.",
-                "FIX · Polished Persian (FA) RTL header layout, Liquid Glass bottom navigation, and theme contrast across all screens.",
-              ),
-          )
-          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-          ChangelogVersionBlock(
-            versionHeading = "v1.0 · Foundation Sanctuary (ir.pagenest.mrambrosia)",
-            bullets =
-              listOf(
-                "CORE · Local-first EPUB & PDF library with zero-account private storage, bilingual English/Persian UI, sample classics, custom .ttf/.otf font importer, highlights, marginalia notes, on-device translation, bookmarks, in-book search, and Text-to-Speech Listen Mode.",
-              ),
-          )
+          if (isFa) {
+            ChangelogVersionBlock(
+              versionHeading = "نسخه ۳.۲.۰ (بیلد ${BuildConfig.VERSION_CODE}) · صوت و تمرکز، ژست‌ها، فید OPDS و استودیو جلد",
+              bullets =
+                listOf(
+                  "جدید · تایمر خواب با محو شدن ملایم صدا در حالت شنیداری: زمان‌بند ۱۵ تا ۶۰ دقیقه یا «پایان فصل» همراه با کاهش تدریجی و آرام صدا در ۱۵ ثانیه پایانی پیش از توقف خودکار.",
+                  "جدید · کنترل پخش در صفحه قفل و دکمه‌های هدفون/هندزفری بلوتوث برای روخوانی کتاب (MediaSession + اعلان استاندارد رسانه).",
+                  "جدید · شخصی‌سازی نواحی لمس صفحه (چپ، مرکز، راست)، تنظیم فوری روشنایی با کشیدن لبه چپ صفحه و نشانک‌گذاری سریع با دو بار ضربه.",
+                  "جدید · صداهای آرامش‌بخش محیطی (باران، شومینه، صدای قهوه‌ای، امواج اقیانوس بدون نیاز به اینترنت) و تایمر تمرکز مطالعه پومودورو.",
+                  "جدید · کتابخانه آنلاین کتاب‌های رایگان و کلاسیک آزاد (پروژه گوتنبرگ، Standard Ebooks و فیدهای سفارشی OPDS) با دانلود مستقیم و افزودن آنی به قفسه.",
+                  "جدید · استودیو طراحی جلد کتاب (۶ قالب هنری + تصویر سفارشی با Photo Picker امن) و مرتب‌سازی و جابه‌جایی فصل‌ها در استودیو نویسندگی پیج‌نست.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "نسخه ۳.۱.۰ · استودیو نویسندگی، ویجت‌های جدید و دقت بازگشت به صفحه",
+              bullets =
+                listOf(
+                  "جدید · استودیو نویسندگی پیج‌نست (آزمایشی): محیط نوشتن کتاب چندفصلی با پشتیبانی کامل از فارسی و انگلیسی، نوار ابزار مارک‌داون، ذخیره خودکار و انتشار یک‌لمسی به صورت EPUB.",
+                  "جدید · ویجت آمار مطالعه (۴×۲) و ویجت ۱×۱ شعله رشته مطالعه با دسترسی مستقیم به داشبورد آمار.",
+                  "بهبود و رفع خطا · حذف دکمه‌های اضافی فصل قبل/بعد از صفحه کتاب، رفع باگ پرش کل کتاب با دکمه‌های صدا و ذخیره دقیق شماره صفحه خوانده‌شده هنگام بستن و باز کردن مجدد برنامه.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "نسخه ۳.۰ · قفسه‌ها، فرمت‌های گسترده، داشبورد آمار و یادآورها",
+              bullets =
+                listOf(
+                  "جدید · قفسه‌ها و دسته‌بندی‌های دلخواه، فیلتر وضعیت مطالعه، ویرایشگر مشخصات و جلد کتاب.",
+                  "جدید · پشتیبانی بومی از فایل‌های TXT، Markdown (.md)، FictionBook (.fb2) و کمیک بوک (.cbz) در کنار EPUB و PDF.",
+                  "جدید · داشبورد آمار مطالعه با نمودار روزانه و روند پیشرفت، یادآور روزانه رشته مطالعه و ویجت ادامه مطالعه.",
+                  "جدید · بخش حمایت از توسعه‌دهنده (Tip Jar) با لینک‌های قابل تنظیم ایرانی و بین‌المللی و نسخه حامیان Pro.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "نسخه ۲.۰ · موتور بومی مطالعه و حالت صرفه‌جویی باتری",
+              bullets =
+                listOf(
+                  "موتور جدید · جایگزینی کامل WebView با موتور تماماً بومی Jetpack Compose برای حذف کرش‌های مرورگر و روانی بیشتر صفحات.",
+                  "جدید · حالت صرفه‌جویی باتری (محدودیت نرخ نوسازی و حذف افکت‌های سنگین)، ورق زدن با دکمه‌های صدا، بافت کاغذی و تم‌های شب.",
+                  "رفع خطا · اصلاح چیدمان راست‌به‌چپ فارسی در هدر کتابخانه و بهینه‌سازی کنتراست در تمام تم‌ها.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "نسخه ۱.۰ · هسته اولیه کتابخوان آرام پیج‌نست",
+              bullets =
+                listOf(
+                  "هسته اصلی · کتابخانه کاملاً آفلاین و محلی برای EPUB و PDF با رابط کاربری دوزبانه فارسی/انگلیسی، قلم‌های بومی و سفارشی، هایلایت و یادداشت، ترجمه در لحظه، نشانک، جستجوی متنی و روخوانی صوتی.",
+                ),
+            )
+          } else {
+            ChangelogVersionBlock(
+              versionHeading = "v3.2.0 (Build ${BuildConfig.VERSION_CODE}) · Listen Immersion, Gestures, OPDS & Cover Studio",
+              bullets =
+                listOf(
+                  "NEW · Sleep Timer & Gentle Fade-Out in Listen Mode: 15/30/45/60m or End-of-Chapter timers with smooth 15-second linear volume fade-out before pausing.",
+                  "NEW · Lock-Screen Media Controls & Bluetooth Earbud Shortcuts for Text-to-Speech via native Android MediaSession & MediaStyle foreground playback notification.",
+                  "NEW · Tap-Zone & Gesture Customization: assign Left / Center / Right tap actions, left-edge vertical brightness swipe, and double-tap quick bookmarking.",
+                  "NEW · Offline Procedural Ambient Soundscapes (Rain, Fireplace, Brown Noise, Ocean Waves) & Pomodoro Focus Timer inside the Reader.",
+                  "NEW · Free Public-Domain Book Browser: explore Project Gutenberg, Standard Ebooks, and custom OPDS 1.2 feeds with one-tap EPUB import.",
+                  "NEW · Studio Cover Studio & Chapter Reordering: pick from 6 editorial gradients or upload a custom cover photo in PageNest Studio, and reorder chapters anytime.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "v3.1.0 · Studio, Widgets & Reader Precision",
+              bullets =
+                listOf(
+                  "NEW · PageNest Studio (Beta): full offline book-writing studio with multi-chapter drafts, Markdown toolbar, RTL/LTR support, live autosave, Markdown export, and one-tap EPUB 3.0 publishing.",
+                  "NEW · Reading Statistics Widget (4×2) & 1×1 Streak Flame Widget on the home screen.",
+                  "UX & FIX · Removed inline Prev/Next Chapter buttons, fixed Volume key chapter-skipping bug, and persisted exact per-page resume position across restarts.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "v3.0 · Collections, Formats, Statistics & Indie Support",
+              bullets =
+                listOf(
+                  "NEW · Custom Shelves, Collections & Reading Status Filters plus Book Metadata & Cover Editor via Android Photo Picker.",
+                  "NEW · Expanded Format Support: native TXT, Markdown (.md), FictionBook (.fb2), and Comic Archives (.cbz) alongside EPUB and PDF.",
+                  "NEW · Reading Statistics Dashboard, WorkManager Daily Streak Reminders, Continue Reading Widget, Tip Jar & PageNest Pro supporter edition.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "v2.0 · Native Reading Engine & Comfort Upgrade",
+              bullets =
+                listOf(
+                  "ENGINE · Replaced WebView with a 100% native Jetpack Compose EPUB reader engine — eliminating renderer crashes.",
+                  "NEW · Battery-Saver Reading Mode, Volume Key page turning, tactile Paper Texture mode, Black & White Night theme, and Persian RTL header polish.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "v1.0 · Foundation Sanctuary (ir.pagenest.mrambrosia)",
+              bullets =
+                listOf(
+                  "CORE · Local-first EPUB & PDF library with zero-account private storage, bilingual English/Persian UI, sample classics, custom .ttf/.otf font importer, highlights, notes, translation, bookmarks, search, and Text-to-Speech.",
+                ),
+            )
+          }
         }
       },
       confirmButton = {
@@ -1696,4 +1812,81 @@ private fun formatBytes(bytes: Long): String {
   if (kb < 1024) return String.format("%.1f KB", kb)
   val mb = kb / 1024.0
   return String.format("%.2f MB", mb)
+}
+
+@Composable
+private fun SettingsTapZoneTile(
+  zoneLabel: String,
+  selectedAction: TapZoneAction,
+  isFa: Boolean,
+  onSelect: (TapZoneAction) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  var expanded by remember { mutableStateOf(false) }
+  Box(modifier = modifier) {
+    Surface(
+      shape = RoundedCornerShape(12.dp),
+      color = MaterialTheme.colorScheme.surfaceVariant,
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+      modifier =
+        Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(12.dp))
+          .clickable { expanded = true },
+    ) {
+      Column(
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+      ) {
+        Text(
+          text = zoneLabel,
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+          text = if (isFa) selectedAction.faLabel else selectedAction.label,
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.primary,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+    }
+    DropdownMenu(
+      expanded = expanded,
+      onDismissRequest = { expanded = false },
+      containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+      TapZoneAction.entries.forEach { action ->
+        DropdownMenuItem(
+          text = {
+            Text(
+              text = if (isFa) action.faLabel else action.label,
+              color =
+                if (action == selectedAction) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface,
+            )
+          },
+          trailingIcon = {
+            if (action == selectedAction) {
+              Icon(
+                imageVector = Icons.Rounded.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+              )
+            }
+          },
+          onClick = {
+            expanded = false
+            onSelect(action)
+          },
+        )
+      }
+    }
+  }
 }

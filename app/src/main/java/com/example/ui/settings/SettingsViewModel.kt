@@ -16,6 +16,7 @@ import com.example.model.ReaderSettings
 import com.example.config.MonetizationConfig
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.model.TapZoneAction
 import com.example.model.TipPromptMode
 import com.example.notifications.StreakReminderScheduler
 import com.example.notifications.StreakReminderWorker
@@ -133,6 +134,26 @@ class SettingsViewModel(
 
   fun setPaperTextureEnabled(enabled: Boolean) {
     viewModelScope.launch { readerRepository.updateSettings { it.copy(paperTextureEnabled = enabled) } }
+  }
+
+  fun setLeftTapAction(action: TapZoneAction) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(leftTapAction = action) } }
+  }
+
+  fun setCenterTapAction(action: TapZoneAction) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(centerTapAction = action) } }
+  }
+
+  fun setRightTapAction(action: TapZoneAction) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(rightTapAction = action) } }
+  }
+
+  fun setEdgeBrightnessSwipeEnabled(enabled: Boolean) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(edgeBrightnessSwipeEnabled = enabled) } }
+  }
+
+  fun setDoubleTapBookmarkEnabled(enabled: Boolean) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(doubleTapBookmarkEnabled = enabled) } }
   }
 
   fun setStreakReminderEnabled(enabled: Boolean) {

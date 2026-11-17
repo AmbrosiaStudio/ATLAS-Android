@@ -31,6 +31,7 @@ class ReadAloudController(context: Context) {
   private var rawVoices: List<Voice> = emptyList()
   private var chunks: List<String> = emptyList()
   private var onChapterFinished: (() -> Unit)? = null
+  @Volatile private var volumeMultiplier: Float = 1.0f
 
   init {
     tts =
@@ -117,12 +118,17 @@ class ReadAloudController(context: Context) {
     }
   }
 
+  fun setVolumeMultiplier(multiplier: Float) {
+    volumeMultiplier = multiplier.coerceIn(0.05f, 1.0f)
+  }
+
   fun speakSample(text: String) {
     if (!_state.value.isReady) return
     _state.update { it.copy(isPlaying = true) }
     tts?.setSpeechRate(_state.value.speechRate)
     tts?.setPitch(_state.value.pitch)
-    tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "pn_sample")
+    val params = android.os.Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f) }
+    tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "pn_sample")
   }
 
   fun setContent(text: String, onFinished: () -> Unit) {
@@ -161,6 +167,30 @@ class ReadAloudController(context: Context) {
     _state.update { it.copy(isPlaying = false, currentChunkIndex = 0) }
   }
 
+  fun nextChunk(): Boolean {
+    if (chunks.isEmpty()) return false
+    val next = _state.value.currentChunkIndex + 1
+    if (next !in chunks.indices) return false
+    if (_state.value.isPlaying) {
+      speakChunk(next)
+    } else {
+      _state.update { it.copy(currentChunkIndex = next) }
+    }
+    return true
+  }
+
+  fun previousChunk(): Boolean {
+    if (chunks.isEmpty()) return false
+    val prev = _state.value.currentChunkIndex - 1
+    if (prev !in chunks.indices) return false
+    if (_state.value.isPlaying) {
+      speakChunk(prev)
+    } else {
+      _state.update { it.copy(currentChunkIndex = prev) }
+    }
+    return true
+  }
+
   fun cycleSpeed(): Float {
     val rates = listOf(0.85f, 1.0f, 1.25f, 1.5f)
     val current = _state.value.speechRate
@@ -178,7 +208,11 @@ class ReadAloudController(context: Context) {
     _state.update { it.copy(currentChunkIndex = index) }
     tts?.setSpeechRate(_state.value.speechRate)
     tts?.setPitch(_state.value.pitch)
-    tts?.speak(chunks[index], TextToSpeech.QUEUE_FLUSH, null, "pn_chunk_$index")
+    val params =
+      android.os.Bundle().apply {
+        putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volumeMultiplier)
+      }
+    tts?.speak(chunks[index], TextToSpeech.QUEUE_FLUSH, params, "pn_chunk_$index")
   }
 
   fun release() {

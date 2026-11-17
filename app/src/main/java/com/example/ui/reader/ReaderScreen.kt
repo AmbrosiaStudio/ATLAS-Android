@@ -54,6 +54,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
@@ -115,13 +116,16 @@ import com.example.engine.cbz.CbzReaderView
 import com.example.engine.epub.EpubReaderView
 import com.example.engine.pdf.PdfReaderView
 import com.example.engine.translate.TargetLanguageOption
+import com.example.model.AmbientSoundType
 import com.example.model.BookFormat
 import com.example.model.HighlightPalette
 import com.example.model.ReaderMode
 import com.example.model.ReadingThemeMode
 import com.example.model.SelectionAnchor
+import com.example.model.SleepTimerPreset
 import com.example.ui.i18n.LocalAppStrings
 import com.example.ui.navigation.LocalVolumeKeyDispatcher
+import com.example.ui.reader.components.FocusAudioSheet
 import com.example.ui.reader.components.IndexAndToolsSheet
 import com.example.ui.reader.components.SignatureBottomDockOverlay
 import com.example.ui.reader.components.ThemeBrightnessSheet
@@ -227,11 +231,12 @@ fun ReaderScreen(
     }
   }
 
-  // Apply in-app screen brightness override
-  LaunchedEffect(uiState.settings.brightnessOverride) {
+  // Apply in-app screen brightness override (or live edge-swipe preview)
+  val effectiveBrightness = uiState.liveBrightnessPreview ?: uiState.settings.brightnessOverride
+  LaunchedEffect(effectiveBrightness) {
     val activity = context as? Activity ?: return@LaunchedEffect
     val lp = activity.window.attributes
-    lp.screenBrightness = uiState.settings.brightnessOverride
+    lp.screenBrightness = effectiveBrightness
     activity.window.attributes = lp
   }
 
@@ -329,6 +334,9 @@ fun ReaderScreen(
         onPageChanged = viewModel::onPdfPageChanged,
         onUnitViewed = viewModel::onReadingUnitViewed,
         onContentTap = viewModel::toggleControls,
+        onQuickBookmark = viewModel::toggleCurrentBookmark,
+        onPreviewBrightness = viewModel::previewBrightness,
+        onCommitBrightness = viewModel::setBrightnessOverride,
         modifier = Modifier.fillMaxSize(),
       )
     }
@@ -345,6 +353,9 @@ fun ReaderScreen(
         onPageChanged = viewModel::onPdfPageChanged,
         onUnitViewed = viewModel::onReadingUnitViewed,
         onContentTap = viewModel::toggleControls,
+        onQuickBookmark = viewModel::toggleCurrentBookmark,
+        onPreviewBrightness = viewModel::previewBrightness,
+        onCommitBrightness = viewModel::setBrightnessOverride,
         modifier = Modifier.fillMaxSize(),
       )
     }
@@ -427,6 +438,9 @@ fun ReaderScreen(
             onSelectionChanged = viewModel::onSelectionChanged,
             onContentTap = viewModel::toggleControls,
             onNavigateChapterDelta = viewModel::navigateChapterDelta,
+            onQuickBookmark = viewModel::toggleCurrentBookmark,
+            onPreviewBrightness = viewModel::previewBrightness,
+            onCommitBrightness = viewModel::setBrightnessOverride,
             modifier = Modifier.fillMaxSize(),
           )
         }
@@ -539,6 +553,21 @@ fun ReaderScreen(
             )
           }
 
+          val focusOrAudioActive =
+            uiState.focusTimer.isRunning ||
+              uiState.activeAmbientSound != AmbientSoundType.NONE ||
+              uiState.sleepTimer.preset != SleepTimerPreset.OFF
+          IconButton(
+            onClick = { viewModel.openSheet(ReaderSheetType.FOCUS_AUDIO) },
+            modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_focus_audio_button"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Headphones,
+              contentDescription = strings.focusAndAudioTitle,
+              tint = if (focusOrAudioActive) palette.accent else palette.text,
+            )
+          }
+
           IconButton(
             onClick = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 3) },
             modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_search_button"),
@@ -643,11 +672,15 @@ fun ReaderScreen(
       locationSummary = locationSummary,
       readerMode = uiState.readerMode,
       listenState = uiState.listenState,
+      sleepTimer = uiState.sleepTimer,
       onToggleExpanded = viewModel::toggleDockExpanded,
       onScrubProgress = viewModel::scrubToOverallProgress,
       onSelectMode = viewModel::setReaderMode,
       onTogglePlayPauseTts = viewModel::togglePlayPauseTts,
+      onSkipTtsPrevious = viewModel::skipTtsPrevious,
+      onSkipTtsNext = viewModel::skipTtsNext,
       onCycleTtsSpeed = viewModel::cycleTtsSpeed,
+      onOpenFocusAudioSheet = { viewModel.openSheet(ReaderSheetType.FOCUS_AUDIO) },
       onOpenThemeBrightness = { viewModel.openSheet(ReaderSheetType.THEME_BRIGHTNESS) },
       onOpenTypography = { viewModel.openSheet(ReaderSheetType.TYPOGRAPHY) },
       onOpenContents = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 0) },
@@ -701,6 +734,11 @@ fun ReaderScreen(
           onToggleBatterySaver = viewModel::setBatterySaverModeEnabled,
           onSelectAlign = viewModel::setTextAlign,
           onTogglePdfThemeFilter = viewModel::setPdfThemeFilter,
+          onSelectLeftTapAction = viewModel::setLeftTapAction,
+          onSelectCenterTapAction = viewModel::setCenterTapAction,
+          onSelectRightTapAction = viewModel::setRightTapAction,
+          onToggleEdgeBrightnessSwipe = viewModel::setEdgeBrightnessSwipeEnabled,
+          onToggleDoubleTapBookmark = viewModel::setDoubleTapBookmarkEnabled,
           onApplyComfortPreset = viewModel::applyComfortPreset,
           onResetComfort = viewModel::resetComfortDefaults,
           onOpenSettings = onOpenSettings,
@@ -731,6 +769,23 @@ fun ReaderScreen(
           onDeleteBookmark = viewModel::deleteBookmark,
           onDeleteHighlight = viewModel::deleteHighlight,
           onSearchQueryChange = viewModel::runSearch,
+          onDismiss = viewModel::closeSheet,
+        )
+
+      ReaderSheetType.FOCUS_AUDIO ->
+        FocusAudioSheet(
+          settings = uiState.settings,
+          palette = palette,
+          readerMode = uiState.readerMode,
+          sleepTimer = uiState.sleepTimer,
+          activeSound = uiState.activeAmbientSound,
+          focusTimer = uiState.focusTimer,
+          onSelectSleepPreset = viewModel::selectSleepTimer,
+          onSelectAmbientSound = viewModel::selectAmbientSound,
+          onChangeAmbientVolume = viewModel::setAmbientVolume,
+          onToggleFocusTimer = viewModel::toggleFocusTimer,
+          onResetFocusTimer = viewModel::resetFocusTimer,
+          onUpdateFocusDurations = viewModel::setFocusDurations,
           onDismiss = viewModel::closeSheet,
         )
 

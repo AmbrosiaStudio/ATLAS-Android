@@ -1,5 +1,6 @@
 package com.example.ui.writer
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -118,6 +119,17 @@ class WriterStudioViewModel(
   fun deleteManuscript(bookId: String) {
     viewModelScope.launch {
       writerRepository.deleteManuscript(bookId)
+    }
+  }
+
+  fun updateBookCover(
+    bookId: String,
+    coverThemeId: Int,
+    pickedCoverUri: Uri? = null,
+    clearCustomImage: Boolean = false,
+  ) {
+    viewModelScope.launch {
+      writerRepository.updateBookCover(bookId, coverThemeId, pickedCoverUri, clearCustomImage)
     }
   }
 
@@ -297,6 +309,23 @@ class WriterEditorViewModel(
   ) {
     viewModelScope.launch {
       writerRepository.updateBookDetails(bookId, title, author, synopsis, isRtl)
+    }
+  }
+
+  fun updateBookCover(
+    coverThemeId: Int,
+    pickedCoverUri: Uri? = null,
+    clearCustomImage: Boolean = false,
+  ) {
+    viewModelScope.launch {
+      writerRepository.updateBookCover(bookId, coverThemeId, pickedCoverUri, clearCustomImage)
+    }
+  }
+
+  fun moveChapter(chapterId: Long, delta: Int) {
+    viewModelScope.launch {
+      flushPendingDraft()
+      writerRepository.moveChapter(bookId, chapterId, delta)
     }
   }
 

@@ -53,6 +53,9 @@ import androidx.compose.ui.unit.sp
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.ReadingThemeMode
+import com.example.model.TapZoneAction
+import com.example.ui.reader.leftEdgeBrightnessSwipe
+import com.example.ui.reader.resolveTapZoneAction
 import com.example.ui.theme.ReadingPalette
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -71,6 +74,9 @@ fun CbzReaderView(
   onPageChanged: (Int) -> Unit,
   onUnitViewed: (String) -> Unit = {},
   onContentTap: () -> Unit,
+  onQuickBookmark: () -> Unit = {},
+  onPreviewBrightness: (Float?) -> Unit = {},
+  onCommitBrightness: (Float) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val safeCount = session.pageCount.coerceAtLeast(1)
@@ -180,25 +186,46 @@ fun CbzReaderView(
         .fillMaxSize()
         .hazeSource(state = hazeState)
         .background(palette.background)
-        .pointerInput(settings.readingLayoutMode, safeCount) {
+        .leftEdgeBrightnessSwipe(
+          enabled = settings.edgeBrightnessSwipeEnabled && scale <= 1.02f,
+          initialBrightness = settings.brightnessOverride,
+          onPreviewBrightness = onPreviewBrightness,
+          onCommitBrightness = onCommitBrightness,
+        )
+        .pointerInput(
+          settings.readingLayoutMode,
+          safeCount,
+          settings.leftTapAction,
+          settings.centerTapAction,
+          settings.rightTapAction,
+        ) {
           detectTapGestures(
             onTap = { tapOffset ->
               if (settings.readingLayoutMode == ReadingLayoutMode.PAGED && scale <= 1.02f) {
-                val ratioX = tapOffset.x / size.width.toFloat().coerceAtLeast(1f)
-                when {
-                  ratioX < 0.22f && pagerState.currentPage > 0 -> {
-                    scope.launch {
-                      if (settings.batterySaverModeEnabled) pagerState.scrollToPage(pagerState.currentPage - 1)
-                      else pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                when (resolveTapZoneAction(tapOffset, size.width, settings)) {
+                  TapZoneAction.PREV_PAGE -> {
+                    if (pagerState.currentPage > 0) {
+                      scope.launch {
+                        if (settings.batterySaverModeEnabled) pagerState.scrollToPage(pagerState.currentPage - 1)
+                        else pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                      }
+                    } else {
+                      onContentTap()
                     }
                   }
-                  ratioX > 0.78f && pagerState.currentPage < safeCount - 1 -> {
-                    scope.launch {
-                      if (settings.batterySaverModeEnabled) pagerState.scrollToPage(pagerState.currentPage + 1)
-                      else pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                  TapZoneAction.NEXT_PAGE -> {
+                    if (pagerState.currentPage < safeCount - 1) {
+                      scope.launch {
+                        if (settings.batterySaverModeEnabled) pagerState.scrollToPage(pagerState.currentPage + 1)
+                        else pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                      }
+                    } else {
+                      onContentTap()
                     }
                   }
-                  else -> onContentTap()
+                  TapZoneAction.TOGGLE_CONTROLS -> onContentTap()
+                  TapZoneAction.QUICK_BOOKMARK -> onQuickBookmark()
+                  TapZoneAction.NONE -> Unit
                 }
               } else {
                 onContentTap()

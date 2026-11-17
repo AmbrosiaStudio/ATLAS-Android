@@ -1,11 +1,14 @@
 package com.example.data.repository
 
 import android.content.Context
+import android.net.Uri
 import com.example.data.local.BookEntity
 import com.example.data.local.PageNestDao
 import com.example.data.local.WriterBookEntity
 import com.example.data.local.WriterChapterEntity
 import com.example.engine.writer.WriterEpubExporter
+import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -130,8 +133,66 @@ class WriterRepository(
       dao.touchWriterBookUpdatedAt(bookId, System.currentTimeMillis())
     }
 
+  suspend fun moveChapter(bookId: String, chapterId: Long, delta: Int): Boolean =
+    withContext(Dispatchers.IO) {
+      val ordered = dao.getWriterChapters(bookId).sortedBy { it.orderIndex }.toMutableList()
+      val currentIndex = ordered.indexOfFirst { it.id == chapterId }
+      if (currentIndex == -1) return@withContext false
+      val targetIndex = currentIndex + delta
+      if (targetIndex !in ordered.indices || targetIndex == currentIndex) return@withContext false
+      val moved = ordered.removeAt(currentIndex)
+      ordered.add(targetIndex, moved)
+      ordered.forEachIndexed { idx, ch ->
+        if (ch.orderIndex != idx) {
+          dao.updateWriterChapterOrder(ch.id, idx)
+        }
+      }
+      dao.touchWriterBookUpdatedAt(bookId, System.currentTimeMillis())
+      true
+    }
+
+  suspend fun updateBookCover(
+    bookId: String,
+    coverThemeId: Int,
+    pickedCoverUri: Uri? = null,
+    clearCustomImage: Boolean = false,
+  ) =
+    withContext(Dispatchers.IO) {
+      val existing = dao.getWriterBook(bookId) ?: return@withContext
+      val coversDir = File(context.filesDir, "studio_covers").apply { mkdirs() }
+      var nextImagePath = existing.coverImagePath
+
+      if (clearCustomImage) {
+        existing.coverImagePath?.let { path -> File(path).delete() }
+        nextImagePath = null
+      } else if (pickedCoverUri != null) {
+        val destFile = File(coversDir, "studio_cover_${bookId}_${System.currentTimeMillis()}.jpg")
+        val copied =
+          runCatching {
+            context.contentResolver.openInputStream(pickedCoverUri)?.use { input ->
+              FileOutputStream(destFile).use { output -> input.copyTo(output) }
+            }
+            destFile.exists() && destFile.length() > 0L
+          }.getOrDefault(false)
+        if (copied) {
+          existing.coverImagePath?.let { oldPath -> File(oldPath).delete() }
+          nextImagePath = destFile.absolutePath
+        } else {
+          destFile.delete()
+        }
+      }
+
+      dao.updateWriterBookCover(
+        bookId = bookId,
+        coverThemeId = coverThemeId.coerceIn(0, WriterEpubExporter.coverThemes.lastIndex),
+        coverImagePath = nextImagePath,
+        updatedAt = System.currentTimeMillis(),
+      )
+    }
+
   suspend fun deleteManuscript(bookId: String) =
     withContext(Dispatchers.IO) {
+      dao.getWriterBook(bookId)?.coverImagePath?.let { path -> File(path).delete() }
       dao.deleteWriterBook(bookId)
     }
 

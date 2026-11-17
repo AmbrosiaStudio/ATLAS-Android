@@ -1,6 +1,7 @@
 package com.example
 
 import android.app.Application
+import com.example.data.catalog.OpdsCatalogRepository
 import com.example.data.local.PageNestDatabase
 import com.example.data.local.ReaderPreferencesDataStore
 import com.example.data.repository.LibraryRepository
@@ -42,6 +43,7 @@ class AppContainer(application: Application) {
     )
   val readerRepository = ReaderRepository(dao = dao, preferences = preferences, appContext = application)
   val writerRepository = WriterRepository(context = application, dao = dao, libraryRepository = libraryRepository)
+  val opdsCatalogRepository = OpdsCatalogRepository(context = application, libraryRepository = libraryRepository)
 }
 
 class PageNestApplication : Application() {

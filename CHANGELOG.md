@@ -1,6 +1,26 @@
 # PageNest Changelog
 
-All notable releases, features, engine upgrades, and bug fixes from **v1.0** through **v3.1.0** (`ir.pagenest.mrambrosia`).
+All notable releases, features, engine upgrades, and bug fixes from **v1.0** through **v3.2.0** (`ir.pagenest.mrambrosia`).
+
+---
+
+## v3.2.0 (Build 5) — Listen Immersion, Gestures, Public-Domain Catalog & Cover Studio
+
+### English
+- **Sleep Timer & Gentle Fade-Out (Listen Mode):** Built-in sleep timer (`Off`, `15m`, `30m`, `45m`, `60m`, or `End of Chapter`) with a live countdown pill in Listen Mode and smooth linear TTS volume fade-out (`KEY_PARAM_VOLUME`) over the last 15 seconds before pausing.
+- **Lock-Screen Media Controls & Earbud Shortcuts:** Native Android `MediaSession` + foreground `MediaStyle` notification (`TtsPlaybackService`) exposing Play, Pause, Next Chunk, Previous Chunk, and Stop controls on the lock screen, notification shade, and Bluetooth earbuds/headsets.
+- **Tap-Zone & Gesture Customization:** Assign independent actions (`Prev Page`, `Next Page`, `Toggle Controls`, `Quick Bookmark`, `None`) to the Left (28%), Center (44%), and Right (28%) tap zones across EPUB, PDF, and CBZ, plus **Left-Edge Vertical Brightness Swipe** and **Double-Tap Quick Bookmark** (available in Reader Typography sheet & Settings).
+- **Offline Ambient Soundscapes & Reading Focus Timer:** Procedural `AudioTrack` sound synthesizer (`Rain`, `Fireplace`, `Brown Noise`, `Ocean Waves`) with volume slider, paired with an in-reader Pomodoro Focus Timer (`15/3m`, `25/5m`, `45/10m`, `60/15m`) and cycle tracker.
+- **Free Public-Domain Book Browser (`CatalogScreen`):** Browse and search **Project Gutenberg** (Gutendex JSON API), **Standard Ebooks** (OPDS Atom XML), and **Custom OPDS** feeds with language filters, cover art, and 1-tap EPUB download directly into your Library.
+- **PageNest Studio Cover Studio & Chapter Reordering:** Design covers using 6 curated editorial color themes or upload custom cover artwork via Android Photo Picker (`PickVisualMedia`), and reorder manuscript chapters (`Move Earlier` / `Move Later`) before publishing to EPUB.
+
+### فارسی (Persian Release Notes)
+- **تایمر خواب و کاهش ملایم صدا (حالت شنیداری):** زمان‌بند ۱۵، ۳۰، ۴۵، ۶۰ دقیقه یا «پایان فصل» با شمارش معکوس زنده در نوار پخش و کاهش تدریجی و آرام صدا در ۱۵ ثانیه پایانی پیش از توقف.
+- **کنترل صفحه قفل و دکمه‌های هندزفری/هدفون بلوتوث:** اتصال بومی `MediaSession` و سرویس پیش‌زمینه اعلان رسانه برای کنترل پخش، مکث، بند بعدی/قبلی و توقف از روی صفحه قفل و هدفون.
+- **شخصی‌سازی مناطق لمس و ژست‌های حرکتی:** تنظیم دلخواه عملکرد بخش چپ، مرکز و راست صفحه در مطالعه EPUB، PDF و CBZ، تنظیم فوری روشنایی با کشیدن لبه چپ صفحه، و نشانک سریع با دو بار ضربه.
+- **صداهای آرامش‌بخش محیطی و تایمر تمرکز (پومودورو):** تولید صدای باران، شومینه، نویز قهوه‌ای و امواج دریا به‌صورت کاملاً آفلاین به همراه تایمر تمرکز پومودورو و شمارنده دوره‌های مطالعه.
+- **مرورگر کتاب‌های رایگان و آزاد (OPDS):** جستجو و دانلود یک‌لمسی کتاب‌های EPUB رایگان از پروژه گوتنبرگ، Standard Ebooks و فیدهای دلخواه OPDS همراه با فیلتر زبان و افزودن خودکار به کتابخانه.
+- **استودیو طراحی جلد و چیدمان فصل‌ها در PageNest Studio:** انتخاب از میان ۶ تم هنری جلد یا تصویر دلخواه با Photo Picker امن و جابه‌جایی و مرتب‌سازی فصل‌های کتاب پیش از انتشار نهایی EPUB.
 
 ---
 

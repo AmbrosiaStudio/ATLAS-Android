@@ -82,7 +82,10 @@ import com.example.model.ReaderFontOption
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
 import com.example.model.SelectionAnchor
+import com.example.model.TapZoneAction
 import com.example.model.TextAlignOption
+import com.example.ui.reader.leftEdgeBrightnessSwipe
+import com.example.ui.reader.resolveTapZoneAction
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.LoraFontFamily
@@ -134,6 +137,9 @@ fun EpubReaderView(
   onSelectionChanged: (SelectionAnchor) -> Unit,
   onContentTap: () -> Unit,
   onNavigateChapterDelta: (Int) -> Unit,
+  onQuickBookmark: () -> Unit = {},
+  onPreviewBrightness: (Float?) -> Unit = {},
+  onCommitBrightness: (Float) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val density = LocalDensity.current
@@ -145,6 +151,7 @@ fun EpubReaderView(
   val latestSelectionCb by rememberUpdatedState(onSelectionChanged)
   val latestTapCb by rememberUpdatedState(onContentTap)
   val latestNavDeltaCb by rememberUpdatedState(onNavigateChapterDelta)
+  val latestQuickBookmarkCb by rememberUpdatedState(onQuickBookmark)
   val latestInitialFraction by rememberUpdatedState(initialScrollFraction)
 
   var parsedChapter by remember(chapter.localFilePath) {
@@ -219,7 +226,13 @@ fun EpubReaderView(
       modifier
         .fillMaxSize()
         .hazeSource(state = hazeState)
-        .background(palette.background),
+        .background(palette.background)
+        .leftEdgeBrightnessSwipe(
+          enabled = settings.edgeBrightnessSwipeEnabled,
+          initialBrightness = settings.brightnessOverride,
+          onPreviewBrightness = onPreviewBrightness,
+          onCommitBrightness = onCommitBrightness,
+        ),
   ) {
     val containerWidthPx = with(density) { maxWidth.toPx() }.roundToInt()
     val containerHeightPx = with(density) { maxHeight.toPx() }.roundToInt()
@@ -370,21 +383,13 @@ fun EpubReaderView(
         if (activeSelection != null) {
           clearActiveSelectionAndReport()
         } else {
-          val ratioX = rootTapOffset.x / containerWidthPx.toFloat().coerceAtLeast(1f)
-          val isForwardTap =
-            if (parsedChapter.isRtlDocument) ratioX < 0.22f else ratioX > 0.78f
-          val isBackwardTap =
-            if (parsedChapter.isRtlDocument) ratioX > 0.78f else ratioX < 0.22f
-
-          when {
-            isBackwardTap -> {
+          val configured = resolveTapZoneAction(rootTapOffset, containerWidthPx, settings)
+          when (configured) {
+            TapZoneAction.PREV_PAGE -> {
               if (pagerState.currentPage > 0) {
                 scope.launch {
-                  if (settings.batterySaverModeEnabled) {
-                    pagerState.scrollToPage(pagerState.currentPage - 1)
-                  } else {
-                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                  }
+                  if (settings.batterySaverModeEnabled) pagerState.scrollToPage(pagerState.currentPage - 1)
+                  else pagerState.animateScrollToPage(pagerState.currentPage - 1)
                 }
               } else if (hasPreviousChapter) {
                 latestNavDeltaCb(-1)
@@ -392,14 +397,11 @@ fun EpubReaderView(
                 latestTapCb()
               }
             }
-            isForwardTap -> {
+            TapZoneAction.NEXT_PAGE -> {
               if (pagerState.currentPage < pageCount - 1) {
                 scope.launch {
-                  if (settings.batterySaverModeEnabled) {
-                    pagerState.scrollToPage(pagerState.currentPage + 1)
-                  } else {
-                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                  }
+                  if (settings.batterySaverModeEnabled) pagerState.scrollToPage(pagerState.currentPage + 1)
+                  else pagerState.animateScrollToPage(pagerState.currentPage + 1)
                 }
               } else if (hasNextChapter) {
                 latestNavDeltaCb(1)
@@ -407,7 +409,9 @@ fun EpubReaderView(
                 latestTapCb()
               }
             }
-            else -> latestTapCb()
+            TapZoneAction.TOGGLE_CONTROLS -> latestTapCb()
+            TapZoneAction.QUICK_BOOKMARK -> latestQuickBookmarkCb()
+            TapZoneAction.NONE -> Unit
           }
         }
       }
@@ -423,8 +427,24 @@ fun EpubReaderView(
             modifier =
               Modifier
                 .fillMaxSize()
-                .pointerInput(chapter.localFilePath, pageIdx, parsedChapter.isRtlDocument, activeSelection != null) {
-                  detectTapGestures(onTap = { tapOffset -> handlePageTap(tapOffset) })
+                .pointerInput(
+                  chapter.localFilePath,
+                  pageIdx,
+                  activeSelection != null,
+                  settings.leftTapAction,
+                  settings.centerTapAction,
+                  settings.rightTapAction,
+                  settings.doubleTapBookmarkEnabled,
+                ) {
+                  detectTapGestures(
+                    onTap = { tapOffset -> handlePageTap(tapOffset) },
+                    onDoubleTap =
+                      if (settings.doubleTapBookmarkEnabled) {
+                        { latestQuickBookmarkCb() }
+                      } else {
+                        null
+                      },
+                  )
                 }
                 .padding(
                   start = outerMarginH,
@@ -597,15 +617,48 @@ fun EpubReaderView(
             modifier =
               Modifier
                 .fillMaxSize()
-                .pointerInput(chapter.localFilePath, activeSelection != null) {
+                .pointerInput(
+                  chapter.localFilePath,
+                  activeSelection != null,
+                  settings.leftTapAction,
+                  settings.centerTapAction,
+                  settings.rightTapAction,
+                  settings.doubleTapBookmarkEnabled,
+                ) {
                   detectTapGestures(
-                    onTap = {
+                    onTap = { tapOffset ->
                       if (activeSelection != null) {
                         clearActiveSelectionAndReport()
                       } else {
-                        latestTapCb()
+                        val action = resolveTapZoneAction(tapOffset, containerWidthPx, settings)
+                        val stepPx = containerHeightPx * 0.78f
+                        when (action) {
+                          TapZoneAction.PREV_PAGE -> {
+                            scope.launch {
+                              if (!listState.canScrollBackward && hasPreviousChapter) latestNavDeltaCb(-1)
+                              else if (settings.batterySaverModeEnabled) listState.scrollBy(-stepPx)
+                              else listState.animateScrollBy(-stepPx)
+                            }
+                          }
+                          TapZoneAction.NEXT_PAGE -> {
+                            scope.launch {
+                              if (!listState.canScrollForward && hasNextChapter) latestNavDeltaCb(1)
+                              else if (settings.batterySaverModeEnabled) listState.scrollBy(stepPx)
+                              else listState.animateScrollBy(stepPx)
+                            }
+                          }
+                          TapZoneAction.TOGGLE_CONTROLS -> latestTapCb()
+                          TapZoneAction.QUICK_BOOKMARK -> latestQuickBookmarkCb()
+                          TapZoneAction.NONE -> Unit
+                        }
                       }
-                    }
+                    },
+                    onDoubleTap =
+                      if (settings.doubleTapBookmarkEnabled) {
+                        { latestQuickBookmarkCb() }
+                      } else {
+                        null
+                      },
                   )
                 },
           ) {

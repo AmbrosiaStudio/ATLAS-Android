@@ -189,6 +189,26 @@ class LibraryRepository(
       }
     }
 
+  suspend fun importDownloadedBookFile(
+    tempFile: File,
+    displayFileName: String,
+    format: BookFormat? = null,
+  ): Result<BookEntity> =
+    withContext(Dispatchers.IO) {
+      runCatching {
+        if (!tempFile.exists() || tempFile.length() == 0L) {
+          error("Downloaded book file is empty.")
+        }
+        val resolvedFormat =
+          format
+            ?: detectFormat(tempFile, displayFileName, "")
+            ?: error("Unsupported book format downloaded.")
+        val entity = importLocalFileInternal(tempFile, displayFileName, resolvedFormat)
+        PageNestContinueWidget.requestUpdate(context)
+        entity
+      }
+    }
+
   private suspend fun importLocalFileInternal(
     sourceFile: File,
     originalName: String,

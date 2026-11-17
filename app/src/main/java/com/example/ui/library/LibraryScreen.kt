@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
@@ -124,6 +125,7 @@ fun LibraryScreen(
   onOpenSettings: () -> Unit,
   onOpenStats: () -> Unit = {},
   onOpenStudio: () -> Unit = {},
+  onOpenCatalog: () -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val strings = LocalAppStrings.current
@@ -346,6 +348,13 @@ fun LibraryScreen(
                       },
                     )
                     DropdownMenuItem(
+                      text = { Text(strings.catalogMenuAction, color = MaterialTheme.colorScheme.onSurface) },
+                      onClick = {
+                        showMoreMenu = false
+                        onOpenCatalog()
+                      },
+                    )
+                    DropdownMenuItem(
                       text = { Text(strings.readingStatsMenu, color = MaterialTheme.colorScheme.onSurface) },
                       onClick = {
                         showMoreMenu = false
@@ -532,6 +541,7 @@ fun LibraryScreen(
             onImportClick = launchImportPicker,
             onLoadSamplesClick = viewModel::loadSampleClassics,
             onOpenStudioClick = onOpenStudio,
+            onOpenCatalogClick = onOpenCatalog,
             modifier =
               Modifier
                 .fillMaxSize()
@@ -711,6 +721,40 @@ fun LibraryScreen(
                           modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                         )
                       }
+                    }
+                  }
+                }
+
+                item {
+                  Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                    modifier =
+                      Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onOpenCatalog)
+                        .testTag("library_catalog_chip"),
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.Public,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(15.dp),
+                      )
+                      Text(
+                        text = strings.catalogTitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        softWrap = false,
+                      )
                     }
                   }
                 }
@@ -1362,6 +1406,7 @@ private fun EmptyLibraryView(
   onImportClick: () -> Unit,
   onLoadSamplesClick: () -> Unit,
   onOpenStudioClick: () -> Unit,
+  onOpenCatalogClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val strings = LocalAppStrings.current
@@ -1477,6 +1522,24 @@ private fun EmptyLibraryView(
       Spacer(modifier = Modifier.width(6.dp))
       Text(
         text = strings.studioMenuAction,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+      )
+    }
+
+    TextButton(
+      onClick = onOpenCatalogClick,
+      modifier = Modifier.testTag("empty_catalog_button"),
+    ) {
+      Icon(
+        imageVector = Icons.Rounded.Public,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(17.dp),
+      )
+      Spacer(modifier = Modifier.width(6.dp))
+      Text(
+        text = strings.catalogMenuAction,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.primary,
       )
