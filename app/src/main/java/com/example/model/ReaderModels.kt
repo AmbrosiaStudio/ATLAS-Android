@@ -9,7 +9,8 @@ enum class BookFormat(
   TXT("txt", true),
   MD("md", true),
   FB2("fb2", true),
-  CBZ("cbz", false);
+  CBZ("cbz", false),
+  AUDIOBOOK("audiobook", false);
 
   companion object {
     fun fromString(raw: String): BookFormat =
@@ -185,6 +186,15 @@ enum class AmbientSoundType(
   OCEAN_WAVES("Ocean Waves", "امواج دریا"),
 }
 
+enum class ReadingRulerStyle(
+  val label: String,
+  val faLabel: String,
+) {
+  SPOTLIGHT_BAND("Focus Band", "باند تمرکز"),
+  HIGHLIGHT_STRIP("Tint Strip", "نوار رنگی"),
+  GUIDE_BAR("Underline Guide", "خط‌کش خطی"),
+}
+
 data class ReaderSettings(
   val appLanguage: AppLanguage = AppLanguage.ENGLISH,
   val themeMode: ReadingThemeMode = ReadingThemeMode.PAPER,
@@ -236,6 +246,10 @@ data class ReaderSettings(
   val ambientVolume: Float = 0.45f,
   val focusWorkMinutes: Int = 25,
   val focusBreakMinutes: Int = 5,
+  val readingRulerEnabled: Boolean = false,
+  val readingRulerStyle: ReadingRulerStyle = ReadingRulerStyle.SPOTLIGHT_BAND,
+  val readingRulerHeightDp: Int = 56,
+  val readingRulerDimAlpha: Float = 0.45f,
 )
 
 data class EpubChapter(

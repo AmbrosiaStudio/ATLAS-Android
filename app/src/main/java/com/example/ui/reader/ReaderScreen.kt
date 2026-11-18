@@ -23,6 +23,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -53,6 +55,7 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.Headphones
@@ -80,14 +83,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageShader
@@ -95,6 +102,7 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -121,6 +129,7 @@ import com.example.model.AmbientSoundType
 import com.example.model.BookFormat
 import com.example.model.HighlightPalette
 import com.example.model.ReaderMode
+import com.example.model.ReadingRulerStyle
 import com.example.model.ReadingThemeMode
 import com.example.model.SelectionAnchor
 import com.example.model.SleepTimerPreset
@@ -147,6 +156,7 @@ fun ReaderScreen(
   onNavigateBack: () -> Unit,
   onOpenSettings: () -> Unit,
   onOpenStats: (String) -> Unit = {},
+  onOpenBookInfo: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val palette = uiState.settings.themeMode.toPalette()
@@ -468,6 +478,26 @@ fun ReaderScreen(
       )
     }
 
+    // Optional Reading Ruler / Line Guide Overlay (pass-through canvas + draggable edge thumb)
+    if (
+      uiState.settings.readingRulerEnabled &&
+      uiState.documentState !is ReaderDocumentState.Loading &&
+      uiState.documentState !is ReaderDocumentState.Error
+    ) {
+      ReadingRulerOverlay(
+        style = uiState.settings.readingRulerStyle,
+        heightDp = uiState.settings.readingRulerHeightDp,
+        dimAlpha = uiState.settings.readingRulerDimAlpha,
+        palette = palette,
+        onCycleStyle = {
+          val styles = ReadingRulerStyle.entries
+          val next = styles[(styles.indexOf(uiState.settings.readingRulerStyle) + 1) % styles.size]
+          viewModel.setReadingRulerStyle(next)
+        },
+        modifier = Modifier.fillMaxSize(),
+      )
+    }
+
     // Theme-responsive Clear Specular Liquid-Glass Top Header
     AnimatedVisibility(
       visible = uiState.controlsVisible,
@@ -740,6 +770,10 @@ fun ReaderScreen(
           onSelectRightTapAction = viewModel::setRightTapAction,
           onToggleEdgeBrightnessSwipe = viewModel::setEdgeBrightnessSwipeEnabled,
           onToggleDoubleTapBookmark = viewModel::setDoubleTapBookmarkEnabled,
+          onToggleReadingRuler = viewModel::setReadingRulerEnabled,
+          onSelectReadingRulerStyle = viewModel::setReadingRulerStyle,
+          onChangeReadingRulerHeight = viewModel::setReadingRulerHeightDp,
+          onChangeReadingRulerDimAlpha = viewModel::setReadingRulerDimAlpha,
           onApplyComfortPreset = viewModel::applyComfortPreset,
           onResetComfort = viewModel::resetComfortDefaults,
           onOpenSettings = onOpenSettings,
@@ -770,6 +804,14 @@ fun ReaderScreen(
           onDeleteBookmark = viewModel::deleteBookmark,
           onDeleteHighlight = viewModel::deleteHighlight,
           onSearchQueryChange = viewModel::runSearch,
+          onOpenBookInfo = {
+            viewModel.flushReadingStatsNow()
+            viewModel.closeSheet()
+            val id = uiState.book?.id
+            if (!id.isNullOrBlank()) {
+              onOpenBookInfo(id)
+            }
+          },
           onDismiss = viewModel::closeSheet,
         )
 
@@ -1568,6 +1610,182 @@ private fun PaperTextureOverlay(
           1.00f to edgeTint,
         )
     )
+  }
+}
+
+/**
+ * Non-touch-blocking reading spotlight band / line guide overlay with a draggable side handle.
+ * Leaves the entire page interactive for taps, page turns, scrolling, and text selection.
+ */
+@Composable
+private fun ReadingRulerOverlay(
+  style: ReadingRulerStyle,
+  heightDp: Int,
+  dimAlpha: Float,
+  palette: ReadingPalette,
+  onCycleStyle: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val density = LocalDensity.current
+  val strings = LocalAppStrings.current
+  var yFraction by rememberSaveable { mutableFloatStateOf(0.42f) }
+  var isDragging by remember { mutableStateOf(false) }
+
+  BoxWithConstraints(modifier = modifier.testTag("reading_ruler_overlay")) {
+    val containerHeightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
+    val bandHeightPx = with(density) { heightDp.dp.toPx() }
+    val featherPx = with(density) { 12.dp.toPx() }
+    val handleSizePx = with(density) { 48.dp.toPx() }
+
+    val centerYPx = (yFraction * containerHeightPx).coerceIn(bandHeightPx / 2f, containerHeightPx - bandHeightPx / 2f)
+    val bandTopPx = (centerYPx - bandHeightPx / 2f).coerceAtLeast(0f)
+    val bandBottomPx = (centerYPx + bandHeightPx / 2f).coerceAtMost(containerHeightPx)
+    val handleOffsetYPx = (centerYPx - handleSizePx / 2f).roundToInt()
+
+    val maskColor =
+      if (palette.isDark) Color.Black.copy(alpha = dimAlpha)
+      else Color(0xFF1A1610).copy(alpha = dimAlpha * 0.78f)
+    val tintBandColor = palette.accent.copy(alpha = (dimAlpha * 0.34f).coerceIn(0.08f, 0.28f))
+    val guideBorderColor = palette.accent.copy(alpha = if (isDragging) 0.9f else 0.55f)
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+      when (style) {
+        ReadingRulerStyle.SPOTLIGHT_BAND -> {
+          val topMaskEnd = (bandTopPx - featherPx).coerceAtLeast(0f)
+          if (topMaskEnd > 0f) {
+            drawRect(color = maskColor, topLeft = Offset.Zero, size = Size(size.width, topMaskEnd))
+          }
+          if (bandTopPx > topMaskEnd) {
+            drawRect(
+              brush = Brush.verticalGradient(
+                colors = listOf(maskColor, Color.Transparent),
+                startY = topMaskEnd,
+                endY = bandTopPx,
+              ),
+              topLeft = Offset(0f, topMaskEnd),
+              size = Size(size.width, bandTopPx - topMaskEnd),
+            )
+          }
+
+          val bottomMaskStart = (bandBottomPx + featherPx).coerceAtMost(size.height)
+          if (bottomMaskStart > bandBottomPx) {
+            drawRect(
+              brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, maskColor),
+                startY = bandBottomPx,
+                endY = bottomMaskStart,
+              ),
+              topLeft = Offset(0f, bandBottomPx),
+              size = Size(size.width, bottomMaskStart - bandBottomPx),
+            )
+          }
+          if (bottomMaskStart < size.height) {
+            drawRect(
+              color = maskColor,
+              topLeft = Offset(0f, bottomMaskStart),
+              size = Size(size.width, size.height - bottomMaskStart),
+            )
+          }
+
+          drawLine(
+            color = guideBorderColor.copy(alpha = 0.35f),
+            start = Offset(0f, bandTopPx),
+            end = Offset(size.width, bandTopPx),
+            strokeWidth = 1.dp.toPx(),
+          )
+          drawLine(
+            color = guideBorderColor.copy(alpha = 0.45f),
+            start = Offset(0f, bandBottomPx),
+            end = Offset(size.width, bandBottomPx),
+            strokeWidth = 1.2.dp.toPx(),
+          )
+        }
+
+        ReadingRulerStyle.HIGHLIGHT_STRIP -> {
+          drawRect(
+            color = tintBandColor,
+            topLeft = Offset(0f, bandTopPx),
+            size = Size(size.width, (bandBottomPx - bandTopPx).coerceAtLeast(1f)),
+          )
+          drawLine(
+            color = guideBorderColor.copy(alpha = 0.55f),
+            start = Offset(0f, bandTopPx),
+            end = Offset(size.width, bandTopPx),
+            strokeWidth = 1.dp.toPx(),
+          )
+          drawLine(
+            color = guideBorderColor.copy(alpha = 0.70f),
+            start = Offset(0f, bandBottomPx),
+            end = Offset(size.width, bandBottomPx),
+            strokeWidth = 1.5.dp.toPx(),
+          )
+        }
+
+        ReadingRulerStyle.GUIDE_BAR -> {
+          val underlineY = bandBottomPx
+          val barHeightPx = 3.dp.toPx()
+          drawRect(
+            brush = Brush.verticalGradient(
+              colors = listOf(Color.Transparent, palette.accent.copy(alpha = dimAlpha * 0.24f)),
+              startY = (underlineY - 22.dp.toPx()).coerceAtLeast(0f),
+              endY = underlineY,
+            ),
+            topLeft = Offset(0f, (underlineY - 22.dp.toPx()).coerceAtLeast(0f)),
+            size = Size(size.width, 22.dp.toPx()),
+          )
+          drawRect(
+            color = palette.accent.copy(alpha = (dimAlpha + 0.35f).coerceIn(0.45f, 0.95f)),
+            topLeft = Offset(0f, underlineY),
+            size = Size(size.width, barHeightPx),
+          )
+        }
+      }
+    }
+
+    // Ergonomic edge drag handle (48dp x 48dp touch target, intercepts vertical drag + tap-to-cycle)
+    Box(
+      contentAlignment = Alignment.CenterEnd,
+      modifier =
+        Modifier
+          .align(Alignment.TopEnd)
+          .offset { IntOffset(0, handleOffsetYPx) }
+          .size(48.dp)
+          .pointerInput(containerHeightPx) {
+            detectVerticalDragGestures(
+              onDragStart = { isDragging = true },
+              onDragEnd = { isDragging = false },
+              onDragCancel = { isDragging = false },
+              onVerticalDrag = { change, dragAmount ->
+                change.consume()
+                yFraction = (yFraction + dragAmount / containerHeightPx).coerceIn(0.10f, 0.90f)
+              },
+            )
+          }
+          .clickable(onClick = onCycleStyle)
+          .testTag("reading_ruler_drag_handle"),
+    ) {
+      Surface(
+        shape = RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp),
+        color = if (isDragging) palette.accent else palette.dockSurface.copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, if (isDragging) palette.accent else palette.dockBorder),
+        shadowElevation = if (isDragging) 8.dp else 3.dp,
+        modifier = Modifier.size(width = 34.dp, height = 48.dp),
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Rounded.DragHandle,
+            contentDescription = strings.readingRulerDragHint,
+            tint =
+              if (isDragging) {
+                if (palette.isDark) Color(0xFF082115) else Color.White
+              } else {
+                palette.accent
+              },
+            modifier = Modifier.size(18.dp),
+          )
+        }
+      }
+    }
   }
 }
 

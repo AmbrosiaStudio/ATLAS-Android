@@ -26,7 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Bookmark
@@ -97,6 +99,7 @@ import com.example.model.ReaderFontOption
 import com.example.model.ReaderMode
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
+import com.example.model.ReadingRulerStyle
 import com.example.model.ReadingThemeMode
 import com.example.model.SleepTimerPreset
 import com.example.model.TapZoneAction
@@ -372,6 +375,10 @@ fun TypographySettingsSheet(
   onSelectRightTapAction: (TapZoneAction) -> Unit = {},
   onToggleEdgeBrightnessSwipe: (Boolean) -> Unit = {},
   onToggleDoubleTapBookmark: (Boolean) -> Unit = {},
+  onToggleReadingRuler: (Boolean) -> Unit = {},
+  onSelectReadingRulerStyle: (ReadingRulerStyle) -> Unit = {},
+  onChangeReadingRulerHeight: (Int) -> Unit = {},
+  onChangeReadingRulerDimAlpha: (Float) -> Unit = {},
   onApplyComfortPreset: (ComfortPreset) -> Unit,
   onResetComfort: () -> Unit,
   onOpenSettings: () -> Unit,
@@ -1055,6 +1062,99 @@ fun TypographySettingsSheet(
           )
         }
       }
+
+      HorizontalDivider(color = palette.divider)
+
+      // Reading Ruler / Line Guide Overlay
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+              text = strings.readingRulerSection,
+              style = MaterialTheme.typography.titleSmall,
+              color = palette.text,
+            )
+            Text(
+              text = strings.readingRulerSub,
+              style = MaterialTheme.typography.bodySmall,
+              color = palette.secondaryText,
+            )
+          }
+          Switch(
+            checked = settings.readingRulerEnabled,
+            onCheckedChange = onToggleReadingRuler,
+            colors =
+              SwitchDefaults.colors(
+                checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
+                checkedTrackColor = palette.accent,
+              ),
+            modifier = Modifier.testTag("sheet_reading_ruler_switch"),
+          )
+        }
+
+        if (settings.readingRulerEnabled) {
+          Text(
+            text = strings.readingRulerStyleLabel,
+            style = MaterialTheme.typography.labelLarge,
+            color = palette.secondaryText,
+          )
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            ReadingRulerStyle.entries.forEach { style ->
+              val selected = settings.readingRulerStyle == style
+              Surface(
+                shape = RoundedCornerShape(12.dp),
+                color =
+                  if (selected) palette.accent.copy(alpha = 0.16f)
+                  else palette.controlSurface.copy(alpha = 0.7f),
+                border = BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
+                modifier =
+                  Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onSelectReadingRulerStyle(style) }
+                    .testTag("ruler_style_${style.name.lowercase()}"),
+              ) {
+                Text(
+                  text = if (isFa) style.faLabel else style.label,
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                  color = if (selected) palette.accent else palette.text,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 9.dp),
+                )
+              }
+            }
+          }
+
+          LabeledSliderRow(
+            label = strings.readingRulerHeightLabel,
+            valueLabel = "${settings.readingRulerHeightDp} dp",
+            value = settings.readingRulerHeightDp.toFloat(),
+            valueRange = 32f..140f,
+            palette = palette,
+            testTag = "reading_ruler_height_slider",
+            onValueChange = { onChangeReadingRulerHeight(it.roundToInt()) },
+          )
+
+          LabeledSliderRow(
+            label = strings.readingRulerOpacityLabel,
+            valueLabel = "${(settings.readingRulerDimAlpha * 100f).roundToInt()}%",
+            value = settings.readingRulerDimAlpha,
+            valueRange = 0.15f..0.75f,
+            palette = palette,
+            testTag = "reading_ruler_opacity_slider",
+            onValueChange = onChangeReadingRulerDimAlpha,
+          )
+        }
+      }
     }
   }
 }
@@ -1148,6 +1248,7 @@ fun IndexAndToolsSheet(
   onDeleteBookmark: (Long) -> Unit,
   onDeleteHighlight: (Long) -> Unit,
   onSearchQueryChange: (String) -> Unit,
+  onOpenBookInfo: (() -> Unit)? = null,
   onDismiss: () -> Unit,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1165,9 +1266,49 @@ fun IndexAndToolsSheet(
       modifier =
         Modifier
           .fillMaxWidth()
-          .heightIn(min = 340.dp, max = 560.dp)
+          .heightIn(min = 340.dp, max = 580.dp)
           .padding(bottom = 16.dp)
     ) {
+      if (onOpenBookInfo != null) {
+        Surface(
+          shape = RoundedCornerShape(14.dp),
+          color = palette.accent.copy(alpha = 0.12f),
+          border = BorderStroke(1.dp, palette.accent.copy(alpha = 0.28f)),
+          modifier =
+            Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp, vertical = 6.dp)
+              .clip(RoundedCornerShape(14.dp))
+              .clickable(onClick = onOpenBookInfo)
+              .testTag("reader_book_info_button"),
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.Info,
+              contentDescription = null,
+              tint = palette.accent,
+              modifier = Modifier.size(18.dp),
+            )
+            Text(
+              text = strings.bookInfoMenuAction,
+              style = MaterialTheme.typography.labelLarge,
+              fontWeight = FontWeight.SemiBold,
+              color = palette.accent,
+              modifier = Modifier.weight(1f),
+            )
+            Icon(
+              imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+              contentDescription = strings.bookInfoMenuAction,
+              tint = palette.accent,
+              modifier = Modifier.size(18.dp),
+            )
+          }
+        }
+      }
       TabRow(
         selectedTabIndex = selectedTab,
         containerColor = Color.Transparent,

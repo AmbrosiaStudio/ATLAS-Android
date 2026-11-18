@@ -9,9 +9,11 @@ import com.example.data.local.BookEntity
 import com.example.data.local.BookShelfCrossRef
 import com.example.data.local.PageNestDao
 import com.example.data.local.ShelfEntity
+import com.example.engine.audiobook.AudiobookEngine
 import com.example.engine.cbz.CbzEngine
 import com.example.engine.epub.EpubParser
 import com.example.engine.formats.TextFormatsConverter
+import com.example.engine.insights.ReadingInsightsEngine
 import com.example.engine.pdf.PdfEngine
 import com.example.model.BookFormat
 import com.example.model.ReadingStatus
@@ -31,6 +33,8 @@ class LibraryRepository(
   private val pdfEngine: PdfEngine,
   private val textFormatsConverter: TextFormatsConverter = TextFormatsConverter(context),
   private val cbzEngine: CbzEngine = CbzEngine(context),
+  private val audiobookEngine: AudiobookEngine = AudiobookEngine(context),
+  private val readingInsightsEngine: ReadingInsightsEngine? = null,
 ) {
   val booksFlow: Flow<List<BookEntity>> = dao.observeAllBooks()
   val shelvesFlow: Flow<List<ShelfEntity>> = dao.observeAllShelves()
@@ -139,6 +143,53 @@ class LibraryRepository(
         } finally {
           tempFile.delete()
         }
+      }
+    }
+
+  suspend fun importAudiobookFiles(uris: List<Uri>): Result<BookEntity> =
+    withContext(Dispatchers.IO) {
+      runCatching {
+        if (uris.isEmpty()) error("No audio files selected.")
+        val bookId = UUID.randomUUID().toString()
+        val imported = audiobookEngine.importAudioFiles(bookId, uris).getOrThrow()
+        val entity =
+          BookEntity(
+            id = bookId,
+            title = imported.manifest.title,
+            author = imported.manifest.author,
+            format = BookFormat.AUDIOBOOK.name,
+            filePath = imported.manifestFile.absolutePath,
+            coverPath = imported.manifest.coverPath,
+            fileSizeBytes = imported.totalFileSizeBytes,
+            totalUnits = imported.manifest.tracks.size.coerceAtLeast(1),
+            addedAt = System.currentTimeMillis(),
+          )
+        dao.upsertBook(entity)
+        PageNestContinueWidget.requestUpdate(context)
+        entity
+      }
+    }
+
+  suspend fun importAudiobookFolder(treeUri: Uri): Result<BookEntity> =
+    withContext(Dispatchers.IO) {
+      runCatching {
+        val bookId = UUID.randomUUID().toString()
+        val imported = audiobookEngine.importAudioFolder(bookId, treeUri).getOrThrow()
+        val entity =
+          BookEntity(
+            id = bookId,
+            title = imported.manifest.title,
+            author = imported.manifest.author,
+            format = BookFormat.AUDIOBOOK.name,
+            filePath = imported.manifestFile.absolutePath,
+            coverPath = imported.manifest.coverPath,
+            fileSizeBytes = imported.totalFileSizeBytes,
+            totalUnits = imported.manifest.tracks.size.coerceAtLeast(1),
+            addedAt = System.currentTimeMillis(),
+          )
+        dao.upsertBook(entity)
+        PageNestContinueWidget.requestUpdate(context)
+        entity
       }
     }
 
@@ -313,6 +364,9 @@ class LibraryRepository(
             addedAt = System.currentTimeMillis(),
           )
         }
+        BookFormat.AUDIOBOOK -> {
+          error("Audiobooks should be imported via the Audiobook importer.")
+        }
       }
 
     dao.upsertBook(entity)
@@ -378,6 +432,12 @@ class LibraryRepository(
       runCatching { File(book.filePath).delete() }
       book.coverPath?.let { runCatching { File(it).delete() } }
       runCatching { File(context.filesDir, "epub_cache/${book.id}").deleteRecursively() }
+      runCatching { File(context.filesDir, "audiobooks/${book.id}").deleteRecursively() }
+      readingInsightsEngine?.deleteBookInsights(book.id)
+        ?: runCatching {
+          val safe = book.id.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+          File(context.filesDir, "reading_insights/$safe.json").delete()
+        }
       PageNestContinueWidget.requestUpdate(context)
     }
 

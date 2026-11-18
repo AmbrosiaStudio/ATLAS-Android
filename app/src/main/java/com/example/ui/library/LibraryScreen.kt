@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BarChart
@@ -49,7 +50,9 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Public
@@ -122,6 +125,7 @@ import kotlin.math.roundToInt
 fun LibraryScreen(
   viewModel: LibraryViewModel,
   onOpenBook: (String) -> Unit,
+  onOpenBookInfo: (String) -> Unit = {},
   onOpenSettings: () -> Unit,
   onOpenStats: () -> Unit = {},
   onOpenStudio: () -> Unit = {},
@@ -136,6 +140,7 @@ fun LibraryScreen(
   var showMoreMenu by remember { mutableStateOf(false) }
   var showGoalDialog by remember { mutableStateOf(false) }
   var showCreateShelfDialog by remember { mutableStateOf(false) }
+  var showImportSourceDialog by remember { mutableStateOf(false) }
   var showTipJarDialog by remember { mutableStateOf(false) }
   var showProDialog by remember { mutableStateOf(false) }
   var shelfPendingDelete by remember { mutableStateOf<ShelfEntity?>(null) }
@@ -149,8 +154,22 @@ fun LibraryScreen(
       }
     }
 
+  val audioFilesPicker =
+    rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+      if (uris.isNotEmpty()) {
+        viewModel.importAudioFilesFromUris(uris)
+      }
+    }
+
+  val audioFolderPicker =
+    rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->
+      if (treeUri != null) {
+        viewModel.importAudioFolderFromUri(treeUri)
+      }
+    }
+
   val launchImportPicker = {
-    documentPicker.launch(arrayOf("*/*"))
+    showImportSourceDialog = true
   }
 
   LaunchedEffect(uiState.errorMessage, uiState.infoMessage) {
@@ -888,7 +907,9 @@ fun LibraryScreen(
                 )
                 ContinueReadingCard(
                   book = heroBook,
+                  infoContentDescription = strings.bookInfoMenuAction,
                   onClick = { onOpenBook(heroBook.id) },
+                  onInfoClick = { onOpenBookInfo(heroBook.id) },
                   modifier =
                     Modifier
                       .fillMaxWidth()
@@ -952,6 +973,7 @@ fun LibraryScreen(
                       book = book,
                       isFa = isFa,
                       onClick = { onOpenBook(book.id) },
+                      onInfoClick = { onOpenBookInfo(book.id) },
                       onEditClick = { bookPendingEdit = book },
                       onToggleFavorite = { viewModel.toggleBookFavorite(book) },
                       onDeleteClick = { bookPendingDelete = book },
@@ -969,6 +991,7 @@ fun LibraryScreen(
                   book = book,
                   isFa = isFa,
                   onClick = { onOpenBook(book.id) },
+                  onInfoClick = { onOpenBookInfo(book.id) },
                   onEditClick = { bookPendingEdit = book },
                   onToggleFavorite = { viewModel.toggleBookFavorite(book) },
                   onDeleteClick = { bookPendingDelete = book },
@@ -1087,12 +1110,31 @@ fun LibraryScreen(
     )
   }
 
+  if (showImportSourceDialog) {
+    ImportSourcePickerDialog(
+      onImportBook = {
+        showImportSourceDialog = false
+        documentPicker.launch(arrayOf("*/*"))
+      },
+      onImportAudioFiles = {
+        showImportSourceDialog = false
+        audioFilesPicker.launch(arrayOf("audio/*", "application/ogg", "application/octet-stream"))
+      },
+      onImportAudioFolder = {
+        showImportSourceDialog = false
+        audioFolderPicker.launch(null)
+      },
+      onDismiss = { showImportSourceDialog = false },
+    )
+  }
+
   val autoRecommendTip =
     uiState.shouldSuggestTipJar &&
       !showTipJarDialog &&
       !showProDialog &&
       !showGoalDialog &&
       !showCreateShelfDialog &&
+      !showImportSourceDialog &&
       bookPendingEdit == null &&
       bookPendingDelete == null
 
@@ -1561,7 +1603,9 @@ private fun SectionHeading(title: String) {
 @Composable
 private fun ContinueReadingCard(
   book: BookEntity,
+  infoContentDescription: String,
   onClick: () -> Unit,
+  onInfoClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Surface(
@@ -1582,8 +1626,25 @@ private fun ContinueReadingCard(
       Spacer(modifier = Modifier.width(16.dp))
 
       Column(modifier = Modifier.weight(1f)) {
-        FormatPill(format = book.bookFormat())
-        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          FormatPill(format = book.bookFormat())
+          IconButton(
+            onClick = onInfoClick,
+            modifier = Modifier.minimumInteractiveComponentSize().testTag("continue_book_info_button"),
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.Info,
+              contentDescription = infoContentDescription,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(20.dp),
+            )
+          }
+        }
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
           text = book.title,
           fontFamily = LiterataFontFamily,
@@ -1658,6 +1719,7 @@ private fun BookGridCard(
   book: BookEntity,
   isFa: Boolean,
   onClick: () -> Unit,
+  onInfoClick: () -> Unit,
   onEditClick: () -> Unit,
   onToggleFavorite: () -> Unit,
   onDeleteClick: () -> Unit,
@@ -1723,6 +1785,15 @@ private fun BookGridCard(
             onDismissRequest = { showCardMenu = false },
             containerColor = MaterialTheme.colorScheme.surface,
           ) {
+            DropdownMenuItem(
+              leadingIcon = { Icon(Icons.Outlined.Info, contentDescription = null) },
+              text = { Text(strings.bookInfoMenuAction) },
+              onClick = {
+                showCardMenu = false
+                onInfoClick()
+              },
+              modifier = Modifier.testTag("book_info_menu_${book.id}"),
+            )
             DropdownMenuItem(
               leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
               text = { Text(strings.editBookAction) },
@@ -1818,6 +1889,7 @@ private fun BookListRow(
   book: BookEntity,
   isFa: Boolean,
   onClick: () -> Unit,
+  onInfoClick: () -> Unit,
   onEditClick: () -> Unit,
   onToggleFavorite: () -> Unit,
   onDeleteClick: () -> Unit,
@@ -1904,6 +1976,15 @@ private fun BookListRow(
           onDismissRequest = { showRowMenu = false },
           containerColor = MaterialTheme.colorScheme.surface,
         ) {
+          DropdownMenuItem(
+            leadingIcon = { Icon(Icons.Outlined.Info, contentDescription = null) },
+            text = { Text(strings.bookInfoMenuAction) },
+            onClick = {
+              showRowMenu = false
+              onInfoClick()
+            },
+            modifier = Modifier.testTag("book_info_row_menu_${book.id}"),
+          )
           DropdownMenuItem(
             leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
             text = { Text(strings.editBookAction) },
@@ -2018,12 +2099,133 @@ private fun FormatPill(
     color = MaterialTheme.colorScheme.primaryContainer,
     modifier = modifier,
   ) {
-    Text(
-      text = format.name,
-      style = MaterialTheme.typography.labelSmall,
-      fontWeight = FontWeight.SemiBold,
-      color = MaterialTheme.colorScheme.onPrimaryContainer,
+    Row(
       modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-    )
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+      if (format == BookFormat.AUDIOBOOK) {
+        Icon(
+          imageVector = Icons.Rounded.Headphones,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onPrimaryContainer,
+          modifier = Modifier.size(11.dp),
+        )
+      }
+      Text(
+        text = if (format == BookFormat.AUDIOBOOK) "AUDIO" else format.name,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onPrimaryContainer,
+      )
+    }
+  }
+}
+
+@Composable
+private fun ImportSourcePickerDialog(
+  onImportBook: () -> Unit,
+  onImportAudioFiles: () -> Unit,
+  onImportAudioFolder: () -> Unit,
+  onDismiss: () -> Unit,
+) {
+  val strings = LocalAppStrings.current
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    containerColor = MaterialTheme.colorScheme.surface,
+    title = {
+      Text(
+        text = strings.importMenuTitle,
+        fontFamily = LiterataFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
+    },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ImportChoiceRow(
+          icon = Icons.Rounded.AutoStories,
+          title = strings.importBookOption,
+          subtitle = strings.importBookOptionSub,
+          testTag = "import_choice_ebook",
+          onClick = onImportBook,
+        )
+        ImportChoiceRow(
+          icon = Icons.Rounded.Headphones,
+          title = strings.importAudioFilesOption,
+          subtitle = strings.importAudioFilesOptionSub,
+          testTag = "import_choice_audio_files",
+          onClick = onImportAudioFiles,
+        )
+        ImportChoiceRow(
+          icon = Icons.Rounded.FolderOpen,
+          title = strings.importAudioFolderOption,
+          subtitle = strings.importAudioFolderOptionSub,
+          testTag = "import_choice_audio_folder",
+          onClick = onImportAudioFolder,
+        )
+      }
+    },
+    confirmButton = {
+      TextButton(onClick = onDismiss) {
+        Text(strings.cancel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+    },
+  )
+}
+
+@Composable
+private fun ImportChoiceRow(
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  title: String,
+  subtitle: String,
+  testTag: String,
+  onClick: () -> Unit,
+) {
+  Surface(
+    shape = RoundedCornerShape(14.dp),
+    color = MaterialTheme.colorScheme.surfaceVariant,
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    modifier =
+      Modifier
+        .fillMaxWidth()
+        .minimumInteractiveComponentSize()
+        .clip(RoundedCornerShape(14.dp))
+        .clickable(onClick = onClick)
+        .testTag(testTag),
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.size(38.dp),
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.size(20.dp),
+          )
+        }
+      }
+      Column(modifier = Modifier.weight(1f)) {
+        Text(
+          text = title,
+          style = MaterialTheme.typography.titleSmall,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+          text = subtitle,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+    }
   }
 }

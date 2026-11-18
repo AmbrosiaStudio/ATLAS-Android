@@ -17,6 +17,7 @@ import com.example.model.LibrarySortOrder
 import com.example.model.ReaderFontOption
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
+import com.example.model.ReadingRulerStyle
 import com.example.model.ReadingThemeMode
 import com.example.model.TapZoneAction
 import com.example.model.TextAlignOption
@@ -79,6 +80,10 @@ class ReaderPreferencesDataStore(private val context: Context) {
     val AMBIENT_VOLUME = floatPreferencesKey("ambient_volume")
     val FOCUS_WORK_MINUTES = intPreferencesKey("focus_work_minutes")
     val FOCUS_BREAK_MINUTES = intPreferencesKey("focus_break_minutes")
+    val READING_RULER_ENABLED = booleanPreferencesKey("reading_ruler_enabled")
+    val READING_RULER_STYLE = stringPreferencesKey("reading_ruler_style")
+    val READING_RULER_HEIGHT_DP = intPreferencesKey("reading_ruler_height_dp")
+    val READING_RULER_DIM_ALPHA = floatPreferencesKey("reading_ruler_dim_alpha")
   }
 
   private fun Preferences.toSettings(): ReaderSettings =
@@ -157,6 +162,12 @@ class ReaderPreferencesDataStore(private val context: Context) {
       ambientVolume = (this[Keys.AMBIENT_VOLUME] ?: 0.45f).coerceIn(0.05f, 1.0f),
       focusWorkMinutes = (this[Keys.FOCUS_WORK_MINUTES] ?: 25).coerceIn(5, 90),
       focusBreakMinutes = (this[Keys.FOCUS_BREAK_MINUTES] ?: 5).coerceIn(1, 30),
+      readingRulerEnabled = this[Keys.READING_RULER_ENABLED] ?: false,
+      readingRulerStyle =
+        this[Keys.READING_RULER_STYLE]?.let { runCatching { ReadingRulerStyle.valueOf(it) }.getOrNull() }
+          ?: ReadingRulerStyle.SPOTLIGHT_BAND,
+      readingRulerHeightDp = (this[Keys.READING_RULER_HEIGHT_DP] ?: 56).coerceIn(32, 140),
+      readingRulerDimAlpha = (this[Keys.READING_RULER_DIM_ALPHA] ?: 0.45f).coerceIn(0.15f, 0.75f),
     )
 
   val settingsFlow: Flow<ReaderSettings> = context.readerDataStore.data.map { it.toSettings() }
@@ -219,6 +230,10 @@ class ReaderPreferencesDataStore(private val context: Context) {
       prefs[Keys.AMBIENT_VOLUME] = next.ambientVolume
       prefs[Keys.FOCUS_WORK_MINUTES] = next.focusWorkMinutes
       prefs[Keys.FOCUS_BREAK_MINUTES] = next.focusBreakMinutes
+      prefs[Keys.READING_RULER_ENABLED] = next.readingRulerEnabled
+      prefs[Keys.READING_RULER_STYLE] = next.readingRulerStyle.name
+      prefs[Keys.READING_RULER_HEIGHT_DP] = next.readingRulerHeightDp
+      prefs[Keys.READING_RULER_DIM_ALPHA] = next.readingRulerDimAlpha
     }
   }
 

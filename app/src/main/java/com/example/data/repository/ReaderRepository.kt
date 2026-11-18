@@ -32,6 +32,35 @@ class ReaderRepository(
 
   suspend fun getBookById(bookId: String): BookEntity? = dao.getBookById(bookId)
 
+  suspend fun syncCompanionBookProgress(
+    targetBookId: String,
+    targetProgressPercent: Float,
+  ): Boolean {
+    val targetBook = dao.getBookById(targetBookId) ?: return false
+    val clamped = targetProgressPercent.coerceIn(0f, 100f)
+    val total = targetBook.totalUnits.coerceAtLeast(1)
+    val isReflowable = targetBook.bookFormat().isReflowableText
+    val (unitIdx, frac) =
+      if (isReflowable) {
+        val exact = (clamped / 100f) * total
+        val idx = exact.toInt().coerceIn(0, total - 1)
+        val f = (exact - idx).coerceIn(0f, 0.98f)
+        idx to f
+      } else {
+        val pageIdx =
+          if (total <= 1) 0
+          else kotlin.math.round((clamped / 100f) * (total - 1)).toInt().coerceIn(0, total - 1)
+        pageIdx to 0f
+      }
+    saveProgress(
+      bookId = targetBookId,
+      chapterOrPage = unitIdx,
+      scrollFraction = frac,
+      progressPercent = clamped,
+    )
+    return true
+  }
+
   fun observeBookmarks(bookId: String): Flow<List<BookmarkEntity>> = dao.observeBookmarks(bookId)
 
   fun observeHighlights(bookId: String): Flow<List<HighlightEntity>> = dao.observeHighlights(bookId)

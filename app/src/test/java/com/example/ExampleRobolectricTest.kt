@@ -891,4 +891,211 @@ class ExampleRobolectricTest {
       assertTrue("$soundType should never clip (maxAbs=$maxAbs)", maxAbs <= 32767)
     }
   }
+
+  @Test
+  fun `reading ruler preferences persist style height and clamped dim alpha`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val store = com.example.data.local.ReaderPreferencesDataStore(context)
+
+    store.updateSettings {
+      it.copy(
+        readingRulerEnabled = true,
+        readingRulerStyle = com.example.model.ReadingRulerStyle.HIGHLIGHT_STRIP,
+        readingRulerHeightDp = 220, // should clamp to 140
+        readingRulerDimAlpha = 0.05f, // should clamp to 0.15f
+      )
+    }
+
+    val loaded = store.settingsFlow.first()
+    assertTrue(loaded.readingRulerEnabled)
+    assertEquals(com.example.model.ReadingRulerStyle.HIGHLIGHT_STRIP, loaded.readingRulerStyle)
+    assertEquals(140, loaded.readingRulerHeightDp)
+    assertEquals(0.15f, loaded.readingRulerDimAlpha, 0.001f)
+  }
+
+  @Test
+  fun `audiobook engine sorts tracks naturally decodes nero chpl chapters and syncs companion ebook`() = runTest {
+    // 1. Natural folder & numeric track ordering
+    val unsorted = listOf("CD2/Track 1.mp3", "Part 10.mp3", "Part 2.mp3", "CD1/Track 10.mp3", "CD1/Track 2.mp3", "Part 1.mp3")
+    val sorted = unsorted.sortedWith(com.example.engine.audiobook.AudiobookEngine::naturalCompare)
+    assertEquals(
+      listOf("CD1/Track 2.mp3", "CD1/Track 10.mp3", "CD2/Track 1.mp3", "Part 1.mp3", "Part 2.mp3", "Part 10.mp3"),
+      sorted,
+    )
+
+    // 2. Nero chpl payload decoding (version=1, 3 reserved, 3 unknown, count=2)
+    val ch1Title = "Prologue".toByteArray(Charsets.UTF_8)
+    val ch2Title = "Chapter 1".toByteArray(Charsets.UTF_8)
+    val bb = java.nio.ByteBuffer.allocate(9 + (9 + ch1Title.size) + (9 + ch2Title.size)).order(java.nio.ByteOrder.BIG_ENDIAN)
+    bb.put(1.toByte()) // version 1
+    bb.put(ByteArray(7)) // flags + reserved
+    bb.put(2.toByte()) // 2 chapters
+    bb.putLong(0L) // start 0ms
+    bb.put(ch1Title.size.toByte())
+    bb.put(ch1Title)
+    bb.putLong(90_000L * 10_000L) // start 90,000ms (90s)
+    bb.put(ch2Title.size.toByte())
+    bb.put(ch2Title)
+    val chapters = com.example.engine.audiobook.AudiobookEngine.decodeChplPayload(bb.array(), totalDurationMs = 300_000L)
+    assertEquals(2, chapters.size)
+    assertEquals("Prologue", chapters[0].title)
+    assertEquals(0L, chapters[0].startMs)
+    assertEquals(90_000L, chapters[0].endMs)
+    assertEquals("Chapter 1", chapters[1].title)
+    assertEquals(90_000L, chapters[1].startMs)
+    assertEquals(300_000L, chapters[1].endMs)
+
+    // 3. Manifest serialization roundtrip & overall progress <-> track/position mapping
+    val manifest =
+      com.example.engine.audiobook.AudiobookManifest(
+        bookId = "ab-1",
+        title = "Meditations Audio",
+        author = "Marcus Aurelius",
+        totalDurationMs = 600_000L,
+        tracks =
+          listOf(
+            com.example.engine.audiobook.AudioTrackEntry(0, "Book I", "content://1", null, 0L, 200_000L, 200_000L),
+            com.example.engine.audiobook.AudioTrackEntry(1, "Book II", "content://2", null, 0L, 400_000L, 400_000L),
+          ),
+        currentTrackIndex = 1,
+        currentPositionMs = 100_000L,
+        playbackSpeed = 1.25f,
+        linkedBookId = "ebook-1",
+        lastSyncedAt = 123456L,
+      )
+    val reparsed =
+      com.example.engine.audiobook.AudiobookEngine.parseManifest(
+        com.example.engine.audiobook.AudiobookEngine.serializeManifest(manifest)
+      )
+    assertEquals("ab-1", reparsed.bookId)
+    assertEquals("ebook-1", reparsed.linkedBookId)
+    assertEquals(1.25f, reparsed.playbackSpeed, 0.001f)
+    assertEquals(2, reparsed.tracks.size)
+
+    // Track 1 @ 100s = 200s + 100s = 300s / 600s = 50%
+    val pct = com.example.engine.audiobook.AudiobookEngine.computeOverallProgressPercent(reparsed, 1, 100_000L)
+    assertEquals(50.0f, pct, 0.01f)
+
+    // 75% of 600s = 450s -> Track 1 (starts at 200s) offset 250,000ms
+    val (targetIdx, targetPos) =
+      com.example.engine.audiobook.AudiobookEngine.resolveTrackAndPositionForPercent(reparsed, 75f)
+    assertEquals(1, targetIdx)
+    assertEquals(250_000L, targetPos)
+
+    // 4. Companion Ebook progress sync via ReaderRepository
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      dao.upsertBook(
+        BookEntity(
+          id = "ebook-1",
+          title = "Meditations",
+          author = "Marcus Aurelius",
+          format = "EPUB",
+          filePath = "/tmp/med.epub",
+          coverPath = null,
+          fileSizeBytes = 1024L,
+          totalUnits = 10,
+        )
+      )
+      val repo =
+        com.example.data.repository.ReaderRepository(
+          dao = dao,
+          preferences = com.example.data.local.ReaderPreferencesDataStore(context),
+        )
+      val synced = repo.syncCompanionBookProgress("ebook-1", 55f)
+      assertTrue(synced)
+      val updatedEbook = dao.getBookById("ebook-1")!!
+      assertEquals(55f, updatedEbook.progressPercent, 0.01f)
+      assertEquals(5, updatedEbook.currentChapterOrPage)
+      assertEquals(0.5f, updatedEbook.currentScrollFraction, 0.01f)
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `reading insights engine computes reading speed per chapter eta and persists telemetry`() = runTest {
+    // 1. Multilingual word counting (LTR + Persian ZWNJ)
+    assertEquals(5, com.example.engine.insights.ReadingInsightsEngine.countWordsInPlainText("Slow reading deepens quiet thought."))
+    assertEquals(3, com.example.engine.insights.ReadingInsightsEngine.countWordsInPlainText("خواندنِ عمیق\u200Cتر کتاب"))
+
+    // 2. Speed resolution priority (telemetry > progress delta > global daily stats > default)
+    val fallbackSpeed =
+      com.example.engine.insights.ReadingInsightsEngine.resolveTextReadingSpeed(
+        telemetry = com.example.engine.insights.BookTelemetry("b-none"),
+        totalBookWords = 10_000,
+        dailyStats = emptyList(),
+        progressHistory = emptyList(),
+        defaultWpm = 220,
+      )
+    assertEquals(220, fallbackSpeed.wpm)
+    assertTrue(!fallbackSpeed.isMeasured)
+
+    val telemetrySpeed =
+      com.example.engine.insights.ReadingInsightsEngine.resolveTextReadingSpeed(
+        telemetry = com.example.engine.insights.BookTelemetry("b-tel", totalSecondsRead = 120L, wordsReadEstimated = 500L),
+        totalBookWords = 10_000,
+        dailyStats = emptyList(),
+        progressHistory = emptyList(),
+      )
+    assertEquals(250, telemetrySpeed.wpm)
+    assertTrue(telemetrySpeed.isMeasured)
+
+    // 3. Per-chapter reflowable calculations
+    val reflowable =
+      com.example.engine.insights.ReadingInsightsEngine.calculateReflowableInsights(
+        bookId = "b-ref",
+        format = com.example.model.BookFormat.EPUB,
+        chaptersWordCounts = listOf("Ch 1" to 400, "Ch 2" to 800, "Ch 3" to 600),
+        currentChapterIndex = 1,
+        currentScrollFraction = 0.5f,
+        wordsPerMinute = 200,
+        isMeasuredSpeed = true,
+        totalBookSecondsRead = 180L,
+      )
+    assertEquals(1800, reflowable.totalWords)
+    assertEquals(1, reflowable.completedChaptersCount)
+    assertEquals(com.example.engine.insights.ChapterProgressStatus.COMPLETED, reflowable.chapters[0].status)
+    assertEquals(com.example.engine.insights.ChapterProgressStatus.IN_PROGRESS, reflowable.chapters[1].status)
+    assertEquals(com.example.engine.insights.ChapterProgressStatus.UPCOMING, reflowable.chapters[2].status)
+    // Ch 2 has 800 words @ 200 WPM = 4m total, 50% done -> 2.0m remaining
+    assertEquals(2.0f, reflowable.currentChapterRemainingMinutes, 0.05f)
+    // Total remaining: Ch 2 (2.0m) + Ch 3 (600/200 = 3.0m) = 5.0m
+    assertEquals(5.0f, reflowable.remainingEstimatedMinutes, 0.05f)
+
+    // 4. Fixed-page PDF calculations
+    val pdfInsights =
+      com.example.engine.insights.ReadingInsightsEngine.calculateFixedPageInsights(
+        bookId = "b-pdf",
+        format = com.example.model.BookFormat.PDF,
+        totalPages = 20,
+        currentPageIndex = 9, // 10th page (end of section 2: Pages 6-10)
+        pagesPerHour = 60, // 1.0 min/page
+        isMeasuredSpeed = true,
+        totalBookSecondsRead = 600L,
+      )
+    assertEquals(4, pdfInsights.chapters.size) // 4 sections of 5 pages each
+    assertEquals(2, pdfInsights.completedChaptersCount)
+    assertEquals(10.0f, pdfInsights.remainingEstimatedMinutes, 0.05f)
+
+    // 5. Telemetry file persistence & cleanup
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val engine =
+      com.example.engine.insights.ReadingInsightsEngine(
+        context = context,
+        epubParser = EpubParser(context),
+        textFormatsConverter = com.example.engine.formats.TextFormatsConverter(context),
+        audiobookEngine = com.example.engine.audiobook.AudiobookEngine(context),
+      )
+    engine.deleteBookInsights("insights-persist-1")
+    engine.recordSessionProgress("insights-persist-1", deltaSeconds = 60, deltaWords = 240L, deltaUnits = 2)
+    engine.recordSessionProgress("insights-persist-1", deltaSeconds = 30, deltaWords = 120L, deltaUnits = 1)
+    val saved = engine.loadTelemetry("insights-persist-1")
+    assertEquals(90L, saved.totalSecondsRead)
+    assertEquals(360L, saved.wordsReadEstimated)
+    assertEquals(3, saved.unitsAdvanced)
+    engine.deleteBookInsights("insights-persist-1")
+  }
 }

@@ -312,6 +312,41 @@ class LibraryViewModel(
     }
   }
 
+  fun importAudioFilesFromUris(uris: List<Uri>, onImported: (String) -> Unit = {}) {
+    if (uris.isEmpty()) return
+    viewModelScope.launch {
+      isImporting.value = true
+      errorMessage.value = null
+      libraryRepository
+        .importAudiobookFiles(uris)
+        .onSuccess { book ->
+          infoMessage.value = "Imported \"${book.title}\""
+          onImported(book.id)
+        }
+        .onFailure { err ->
+          errorMessage.value = err.message ?: "Unable to import selected audio files."
+        }
+      isImporting.value = false
+    }
+  }
+
+  fun importAudioFolderFromUri(treeUri: Uri, onImported: (String) -> Unit = {}) {
+    viewModelScope.launch {
+      isImporting.value = true
+      errorMessage.value = null
+      libraryRepository
+        .importAudiobookFolder(treeUri)
+        .onSuccess { book ->
+          infoMessage.value = "Imported \"${book.title}\""
+          onImported(book.id)
+        }
+        .onFailure { err ->
+          errorMessage.value = err.message ?: "Unable to import audiobook folder."
+        }
+      isImporting.value = false
+    }
+  }
+
   fun loadSampleClassics() {
     viewModelScope.launch {
       isImporting.value = true

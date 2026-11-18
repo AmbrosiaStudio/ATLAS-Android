@@ -1344,7 +1344,17 @@ fun SettingsScreen(
         ) {
           if (isFa) {
             ChangelogVersionBlock(
-              versionHeading = "نسخه ۳.۲.۰ (بیلد ${BuildConfig.VERSION_CODE}) · صوت و تمرکز، ژست‌ها، فید OPDS و استودیو جلد",
+              versionHeading = "نسخه ۶.۰ (بیلد ${BuildConfig.VERSION_CODE}) · خط‌کش مطالعه و پخش‌کننده کتاب صوتی",
+              bullets =
+                listOf(
+                  "جدید · خط‌کش مطالعه و راهنمای خط: پوشش قابل جابه‌جایی در سه سبک (باند نوری، نوار رنگی، خط راهنما) با تنظیم ارتفاع، تیرگی اطراف و دستگیره کناری بدون اختلال در لمس و ورق زدن.",
+                  "جدید · پخش‌کننده کتاب صوتی (پوشه، MP3 و M4B): وارد کردن فایل یا کل پوشه صوتی بدون نیاز به مجوز حافظه با مرتب‌سازی خودکار، تشخیص فصل‌های M4B، سرعت پخش ۰.۷۵ تا ۲.۵ برابر، کنترل صفحه قفل، تایمر خواب و صداهای محیطی.",
+                  "جدید · همگام‌سازی کتاب و صوت: اتصال هر کتاب متنی (EPUB، PDF و…) به کتاب صوتی و انتقال یا پرش دقیق درصد پیشرفت بین هر دو نسخه.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "نسخه ۳.۲.۰ (بیلد ۵) · صوت و تمرکز، ژست‌ها، فید OPDS و استودیو جلد",
               bullets =
                 listOf(
                   "جدید · تایمر خواب با محو شدن ملایم صدا در حالت شنیداری: زمان‌بند ۱۵ تا ۶۰ دقیقه یا «پایان فصل» همراه با کاهش تدریجی و آرام صدا در ۱۵ ثانیه پایانی پیش از توقف خودکار.",
@@ -1398,7 +1408,17 @@ fun SettingsScreen(
             )
           } else {
             ChangelogVersionBlock(
-              versionHeading = "v3.2.0 (Build ${BuildConfig.VERSION_CODE}) · Listen Immersion, Gestures, OPDS & Cover Studio",
+              versionHeading = "v6.0 (Build ${BuildConfig.VERSION_CODE}) · Reading Ruler & Audiobook Folder Sync",
+              bullets =
+                listOf(
+                  "NEW · Reading Ruler / Line Guide Overlay: non-touch-blocking focus band (Spotlight, Tint Strip, or Underline Guide) with adjustable height, dim contrast, and ergonomic side handle.",
+                  "NEW · Audiobook Folder / MP3 & M4B Player: zero-permission SAF file or folder import with natural track sorting, M4B embedded chapter parsing, variable speed (0.75×–2.5×), lock-screen controls, sleep fade-out & ambient sound mixing.",
+                  "NEW · Companion Ebook ↔ Audiobook Sync: link any library ebook to an audiobook and push or pull exact percentage progress in either direction.",
+                ),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ChangelogVersionBlock(
+              versionHeading = "v3.2.0 (Build 5) · Listen Immersion, Gestures, OPDS & Cover Studio",
               bullets =
                 listOf(
                   "NEW · Sleep Timer & Gentle Fade-Out in Listen Mode: 15/30/45/60m or End-of-Chapter timers with smooth 15-second linear volume fade-out before pausing.",

@@ -7,10 +7,12 @@ import com.example.data.local.ReaderPreferencesDataStore
 import com.example.data.repository.LibraryRepository
 import com.example.data.repository.ReaderRepository
 import com.example.data.repository.WriterRepository
+import com.example.engine.audiobook.AudiobookEngine
 import com.example.engine.cbz.CbzEngine
 import com.example.engine.epub.EpubParser
 import com.example.engine.fonts.FontManager
 import com.example.engine.formats.TextFormatsConverter
+import com.example.engine.insights.ReadingInsightsEngine
 import com.example.engine.pdf.PdfEngine
 import com.example.engine.translate.TextTranslator
 import com.example.notifications.StreakReminderScheduler
@@ -30,6 +32,14 @@ class AppContainer(application: Application) {
   val pdfEngine = PdfEngine(application)
   val textFormatsConverter = TextFormatsConverter(application)
   val cbzEngine = CbzEngine(application)
+  val audiobookEngine = AudiobookEngine(application)
+  val readingInsightsEngine =
+    ReadingInsightsEngine(
+      context = application,
+      epubParser = epubParser,
+      textFormatsConverter = textFormatsConverter,
+      audiobookEngine = audiobookEngine,
+    )
   val fontManager = FontManager(application)
   val textTranslator = TextTranslator()
   val libraryRepository =
@@ -40,6 +50,8 @@ class AppContainer(application: Application) {
       pdfEngine = pdfEngine,
       textFormatsConverter = textFormatsConverter,
       cbzEngine = cbzEngine,
+      audiobookEngine = audiobookEngine,
+      readingInsightsEngine = readingInsightsEngine,
     )
   val readerRepository = ReaderRepository(dao = dao, preferences = preferences, appContext = application)
   val writerRepository = WriterRepository(context = application, dao = dao, libraryRepository = libraryRepository)

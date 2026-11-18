@@ -1,6 +1,18 @@
 # PageNest Changelog
 
-All notable releases, features, engine upgrades, and bug fixes from **v1.0** through **v3.2.0** (`ir.pagenest.mrambrosia`).
+All notable releases, features, engine upgrades, and bug fixes from **v1.0** through **v6.0** (`ir.pagenest.mrambrosia`).
+
+---
+
+## v6.0 (Build 6) — Reading Ruler & Audiobook Folder Player Sync
+
+### English
+- **Reading Ruler / Line Guide Overlay:** Toggle a smooth, non-touch-blocking reading guide right inside the Reader Typography sheet (`Spotlight Band`, `Highlight Strip`, or `Underline Bar`) with customizable height (`32–140 dp`), mask contrast, and an ergonomic edge handle to glide or tap-cycle styles without interfering with text selection or paging.
+- **Audiobook Folder / MP3 & M4B Player Sync:** Import single or multi-file audiobooks (`.m4b`, `.mp3`, `.m4a`, `.aac`, `.ogg`, `.flac`, `.wav`) or entire audiobook folders via zero-permission Android SAF (`OpenDocumentTree`) with automatic natural track sorting, M4B embedded Nero chapter (`chpl`) parsing, album cover extraction, playback speed (`0.75×–2.5×`), lock-screen/earbud `MediaSession` controls, sleep timer fade-out, ambient soundscape mixing, and **Companion Ebook ↔ Audiobook Progress Sync** (link any book in your library and jump or sync progress percentages both ways).
+
+### فارسی (Persian Release Notes)
+- **خط‌کش مطالعه و راهنمای تمرکز خط:** فعال‌سازی خط‌کش قابل جابه‌جایی در صفحه مطالعه در سه سبک (باند نوری، نوار رنگی یا خط زیرین) با امکان تنظیم ارتفاع، تیرگی پس‌زمینه و دستگیره کناری بدون اختلال در ورق زدن یا انتخاب متن.
+- **پخش‌کننده کتاب صوتی (پوشه، MP3 و M4B) با همگام‌سازی کتاب:** وارد کردن تک‌فایل یا کل پوشه کتاب صوتی بدون نیاز به مجوز حافظه با مرتب‌سازی هوشمند شماره‌گذاری، استخراج خودکار فصل‌های M4B، کاور، سرعت پخش (`۰.۷۵×` تا `۲.۵×`)، کنترل صفحه قفل و هدفون، تایمر خواب و صداهای محیطی، به همراه **همگام‌سازی دوطرفه درصد پیشرفت بین کتاب صوتی و نسخه متنی** در کتابخانه.
 
 ---
 

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -103,6 +104,7 @@ fun ReadingStatsScreen(
   viewModel: ReadingStatsViewModel,
   onNavigateBack: () -> Unit,
   onOpenBook: (String) -> Unit,
+  onOpenBookInfo: (String) -> Unit = {},
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val strings = LocalAppStrings.current
@@ -234,6 +236,7 @@ fun ReadingStatsScreen(
                 showBookPicker = false
               },
               onOpenBook = onOpenBook,
+              onOpenBookInfo = onOpenBookInfo,
               batterySaverEnabled = batterySaver,
               strings = strings,
               isFa = isFa,
@@ -779,6 +782,7 @@ private fun CurrentBookProgressTrendCard(
   onToggleBookPicker: (Boolean) -> Unit,
   onSelectBook: (String) -> Unit,
   onOpenBook: (String) -> Unit,
+  onOpenBookInfo: (String) -> Unit,
   batterySaverEnabled: Boolean,
   strings: AppStrings,
   isFa: Boolean,
@@ -947,7 +951,17 @@ private fun CurrentBookProgressTrendCard(
                 overflow = TextOverflow.Ellipsis,
               )
             }
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            IconButton(
+              onClick = { onOpenBookInfo(selectedBook.id) },
+              modifier = Modifier.minimumInteractiveComponentSize().testTag("stats_book_info_button"),
+            ) {
+              Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = strings.bookInfoMenuAction,
+                tint = MaterialTheme.colorScheme.primary,
+              )
+            }
             Button(
               onClick = { onOpenBook(selectedBook.id) },
               shape = CircleShape,

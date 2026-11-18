@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -21,6 +22,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.AppContainer
+import com.example.model.BookFormat
+import com.example.ui.audiobook.AudiobookPlayerScreen
+import com.example.ui.audiobook.AudiobookViewModel
+import com.example.ui.bookinfo.BookInfoScreen
+import com.example.ui.bookinfo.BookInfoViewModel
 import com.example.ui.catalog.CatalogScreen
 import com.example.ui.catalog.CatalogViewModel
 import com.example.ui.library.LibraryScreen
@@ -37,9 +43,12 @@ import com.example.ui.writer.WriterStudioScreen
 import com.example.ui.writer.WriterStudioViewModel
 import com.example.widget.PageNestContinueWidget
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 const val ROUTE_LIBRARY = "library"
-const val ROUTE_READER = "reader/{bookId}"
+const val ROUTE_READER = "reader/{bookId}?chapter={chapter}"
+const val ROUTE_BOOK_INFO = "book_info/{bookId}"
+const val ROUTE_AUDIOBOOK = "audiobook/{bookId}"
 const val ROUTE_SETTINGS = "settings"
 const val ROUTE_STATS = "stats?bookId={bookId}"
 const val ROUTE_WRITER_STUDIO = "writer_studio"
@@ -56,17 +65,51 @@ fun PageNestNavGraph(
 ) {
   val navController = rememberNavController()
   val context = LocalContext.current.applicationContext as Application
+  val scope = rememberCoroutineScope()
   var initialRestoreDone by rememberSaveable { mutableStateOf(false) }
+
+  val navigateToBook: (String) -> Unit = { targetBookId ->
+    scope.launch {
+      val book = container.readerRepository.getBookById(targetBookId) ?: return@launch
+      val dest =
+        if (book.bookFormat() == BookFormat.AUDIOBOOK) "audiobook/$targetBookId"
+        else "reader/$targetBookId"
+      navController.navigate(dest) {
+        launchSingleTop = true
+      }
+    }
+  }
+
+  val navigateToBookInfo: (String) -> Unit = { targetBookId ->
+    navController.navigate("book_info/$targetBookId") {
+      launchSingleTop = true
+    }
+  }
+
+  val navigateToBookAtChapter: (String, Int) -> Unit = { targetBookId, chapterIdx ->
+    scope.launch {
+      val book = container.readerRepository.getBookById(targetBookId) ?: return@launch
+      val dest =
+        if (book.bookFormat() == BookFormat.AUDIOBOOK) "audiobook/$targetBookId"
+        else "reader/$targetBookId?chapter=$chapterIdx"
+      navController.navigate(dest) {
+        launchSingleTop = true
+      }
+    }
+  }
 
   // Open requested book directly when launched from Home Screen "Continue Reading" Widget
   LaunchedEffect(widgetBookId) {
     val targetId = widgetBookId
     if (!targetId.isNullOrBlank()) {
       initialRestoreDone = true
-      val bookExists = container.readerRepository.getBookById(targetId) != null
+      val book = container.readerRepository.getBookById(targetId)
       onConsumeWidgetBookId()
-      if (bookExists) {
-        navController.navigate("reader/$targetId") {
+      if (book != null) {
+        val dest =
+          if (book.bookFormat() == BookFormat.AUDIOBOOK) "audiobook/$targetId"
+          else "reader/$targetId"
+        navController.navigate(dest) {
           launchSingleTop = true
         }
       }
@@ -94,9 +137,12 @@ fun PageNestNavGraph(
       val settings = container.readerRepository.settingsFlow.first()
       val lastBookId = container.readerRepository.lastOpenedBookIdFlow.first()
       if (settings.restoreLastSession && !lastBookId.isNullOrBlank()) {
-        val bookExists = container.readerRepository.getBookById(lastBookId) != null
-        if (bookExists) {
-          navController.navigate("reader/$lastBookId") {
+        val book = container.readerRepository.getBookById(lastBookId)
+        if (book != null) {
+          val dest =
+            if (book.bookFormat() == BookFormat.AUDIOBOOK) "audiobook/$lastBookId"
+            else "reader/$lastBookId"
+          navController.navigate(dest) {
             launchSingleTop = true
           }
         } else {
@@ -123,11 +169,8 @@ fun PageNestNavGraph(
         )
       LibraryScreen(
         viewModel = libraryViewModel,
-        onOpenBook = { bookId ->
-          navController.navigate("reader/$bookId") {
-            launchSingleTop = true
-          }
-        },
+        onOpenBook = navigateToBook,
+        onOpenBookInfo = navigateToBookInfo,
         onOpenSettings = {
           navController.navigate(ROUTE_SETTINGS) {
             launchSingleTop = true
@@ -152,17 +195,53 @@ fun PageNestNavGraph(
     }
 
     composable(
-      route = ROUTE_READER,
+      route = ROUTE_BOOK_INFO,
       arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
+      enterTransition = { slideInHorizontally { it / 8 } + fadeIn() },
+      exitTransition = { fadeOut() },
+      popEnterTransition = { fadeIn() },
+      popExitTransition = { slideOutHorizontally { it / 8 } + fadeOut() },
+    ) { backStackEntry ->
+      val bookId = backStackEntry.arguments?.getString("bookId").orEmpty()
+      val bookInfoViewModel: BookInfoViewModel =
+        viewModel(
+          key = "book_info_$bookId",
+          factory =
+            BookInfoViewModel.Factory(
+              bookId = bookId,
+              libraryRepository = container.libraryRepository,
+              readerRepository = container.readerRepository,
+              readingInsightsEngine = container.readingInsightsEngine,
+            ),
+        )
+      BookInfoScreen(
+        viewModel = bookInfoViewModel,
+        onNavigateBack = { navController.popBackStack() },
+        onOpenBook = navigateToBook,
+        onOpenBookAtChapter = navigateToBookAtChapter,
+      )
+    }
+
+    composable(
+      route = ROUTE_READER,
+      arguments =
+        listOf(
+          navArgument("bookId") { type = NavType.StringType },
+          navArgument("chapter") {
+            type = NavType.IntType
+            defaultValue = -1
+          },
+        ),
       enterTransition = { EnterTransition.None },
       exitTransition = { ExitTransition.None },
       popEnterTransition = { EnterTransition.None },
       popExitTransition = { ExitTransition.None },
     ) { backStackEntry ->
       val bookId = backStackEntry.arguments?.getString("bookId").orEmpty()
+      val initialChapter = backStackEntry.arguments?.getInt("chapter") ?: -1
       val readerViewModel: ReaderViewModel =
         viewModel(
-          key = "reader_$bookId",
+          key = "reader_${bookId}_$initialChapter",
           factory =
             ReaderViewModel.Factory(
               context = context,
@@ -174,6 +253,8 @@ fun PageNestNavGraph(
               cbzEngine = container.cbzEngine,
               fontManager = container.fontManager,
               textTranslator = container.textTranslator,
+              initialChapterIndex = initialChapter,
+              readingInsightsEngine = container.readingInsightsEngine,
             ),
         )
       ReaderScreen(
@@ -186,6 +267,40 @@ fun PageNestNavGraph(
         },
         onOpenStats = { targetBookId ->
           navController.navigate("stats?bookId=$targetBookId") {
+            launchSingleTop = true
+          }
+        },
+        onOpenBookInfo = navigateToBookInfo,
+      )
+    }
+
+    composable(
+      route = ROUTE_AUDIOBOOK,
+      arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
+      enterTransition = { slideInHorizontally { it / 8 } + fadeIn() },
+      exitTransition = { fadeOut() },
+      popEnterTransition = { fadeIn() },
+      popExitTransition = { slideOutHorizontally { it / 8 } + fadeOut() },
+    ) { backStackEntry ->
+      val bookId = backStackEntry.arguments?.getString("bookId").orEmpty()
+      val audiobookViewModel: AudiobookViewModel =
+        viewModel(
+          key = "audiobook_$bookId",
+          factory =
+            AudiobookViewModel.Factory(
+              context = context,
+              bookId = bookId,
+              readerRepository = container.readerRepository,
+              libraryRepository = container.libraryRepository,
+              audiobookEngine = container.audiobookEngine,
+              readingInsightsEngine = container.readingInsightsEngine,
+            ),
+        )
+      AudiobookPlayerScreen(
+        viewModel = audiobookViewModel,
+        onNavigateBack = { navController.popBackStack() },
+        onOpenCompanionBook = { companionId ->
+          navController.navigate("reader/$companionId") {
             launchSingleTop = true
           }
         },
@@ -242,11 +357,8 @@ fun PageNestNavGraph(
       ReadingStatsScreen(
         viewModel = statsViewModel,
         onNavigateBack = { navController.popBackStack() },
-        onOpenBook = { bookId ->
-          navController.navigate("reader/$bookId") {
-            launchSingleTop = true
-          }
-        },
+        onOpenBook = navigateToBook,
+        onOpenBookInfo = navigateToBookInfo,
       )
     }
 

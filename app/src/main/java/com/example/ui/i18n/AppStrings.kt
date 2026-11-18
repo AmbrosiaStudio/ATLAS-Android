@@ -300,6 +300,63 @@ interface AppStrings {
   val reorderChaptersAction: String
   val moveUpAction: String
   val moveDownAction: String
+  // v6.0 Reading Ruler & Audiobook Player Sync
+  val readingRulerSection: String
+  val readingRulerToggle: String
+  val readingRulerSub: String
+  val readingRulerStyleLabel: String
+  val readingRulerHeightLabel: String
+  val readingRulerOpacityLabel: String
+  val readingRulerDragHint: String
+  val importMenuTitle: String
+  val importBookOption: String
+  val importBookOptionSub: String
+  val importAudioFilesOption: String
+  val importAudioFilesOptionSub: String
+  val importAudioFolderOption: String
+  val importAudioFolderOptionSub: String
+  val audiobookTitle: String
+  val audiobookChaptersTitle: String
+  val audiobookTrackOf: (Int, Int) -> String
+  val audiobookSpeedLabel: String
+  val companionSyncTitle: String
+  val companionSyncSub: String
+  val linkCompanionBookAction: String
+  val unlinkCompanionBookAction: String
+  val noCompanionBookLinked: String
+  val pullFromBookAction: String
+  val pushToBookAction: String
+  val openCompanionBookAction: String
+  val syncCompletedMessage: String
+  val selectCompanionBookTitle: String
+  val noEligibleCompanionBooks: String
+  val audioTrackError: String
+  val bookInfoTitle: String
+  val bookInfoMenuAction: String
+  val readingInsightsTitle: String
+  val readingInsightsSubtitle: String
+  val readingSpeedLabel: String
+  val measuredPaceBadge: String
+  val baselinePaceBadge: String
+  val timeReadLabel: String
+  val totalWordsLabel: String
+  val timeRemainingBookLabel: String
+  val timeRemainingChapterLabel: String
+  val chapterProgressChartTitle: String
+  val chapterChartHint: String
+  val chapterBreakdownTitle: String
+  val completedChaptersSummary: (Int, Int) -> String
+  val wpmValueLabel: (Int) -> String
+  val pagesPerHourLabel: (Int) -> String
+  val speedMultiplierLabel: (Float) -> String
+  val wordsCountLabel: (Int) -> String
+  val chapterDoneLabel: String
+  val chapterInProgressLabel: String
+  val chapterUpcomingLabel: String
+  val openAtChapterAction: String
+  val noChaptersInsightsMessage: String
+  val highlightsCountLabel: (Int) -> String
+  val bookmarksCountLabel: (Int) -> String
 }
 
 object EnglishStrings : AppStrings {
@@ -590,6 +647,63 @@ object EnglishStrings : AppStrings {
   override val reorderChaptersAction = "Reorder Chapters"
   override val moveUpAction = "Move Earlier"
   override val moveDownAction = "Move Later"
+  override val readingRulerSection = "Reading Ruler & Line Guide"
+  override val readingRulerToggle = "Reading Ruler Overlay"
+  override val readingRulerSub = "Draggable focus band or line guide to keep your place cleanly"
+  override val readingRulerStyleLabel = "Guide Style"
+  override val readingRulerHeightLabel = "Window Height"
+  override val readingRulerOpacityLabel = "Mask Contrast"
+  override val readingRulerDragHint = "Drag the side handle vertically to glide the guide"
+  override val importMenuTitle = "Add to Library"
+  override val importBookOption = "Import Ebook or Document"
+  override val importBookOptionSub = "EPUB, PDF, TXT, Markdown, FB2, or CBZ"
+  override val importAudioFilesOption = "Import Audiobook Files"
+  override val importAudioFilesOptionSub = "M4B (with chapters), MP3, M4A, AAC, or OGG"
+  override val importAudioFolderOption = "Import Audiobook Folder"
+  override val importAudioFolderOptionSub = "Zero-permission folder import sorted by track order"
+  override val audiobookTitle = "Audiobook"
+  override val audiobookChaptersTitle = "Tracks & Chapters"
+  override val audiobookTrackOf: (Int, Int) -> String = { cur, tot -> "Part $cur of $tot" }
+  override val audiobookSpeedLabel = "Speed"
+  override val companionSyncTitle = "Ebook ↔ Audio Sync"
+  override val companionSyncSub = "Sync reading progress with an ebook in your library"
+  override val linkCompanionBookAction = "Link Ebook"
+  override val unlinkCompanionBookAction = "Unlink"
+  override val noCompanionBookLinked = "No companion ebook linked yet"
+  override val pullFromBookAction = "Jump to Book %"
+  override val pushToBookAction = "Sync % to Book"
+  override val openCompanionBookAction = "Read Linked Book"
+  override val syncCompletedMessage = "Synced audiobook and companion book progress"
+  override val selectCompanionBookTitle = "Select Companion Ebook"
+  override val noEligibleCompanionBooks = "Import an EPUB, PDF, or text book first to link & sync."
+  override val audioTrackError = "Unable to play audio track. Check if the file or folder permission is still available."
+  override val bookInfoTitle = "Book Info"
+  override val bookInfoMenuAction = "Book Info & Insights"
+  override val readingInsightsTitle = "Reading Insights"
+  override val readingInsightsSubtitle = "Reading speed, chapter progress & time remaining"
+  override val readingSpeedLabel = "Reading Speed"
+  override val measuredPaceBadge = "Measured"
+  override val baselinePaceBadge = "Estimated"
+  override val timeReadLabel = "Time Spent"
+  val totalWordsDefault = "Words"
+  override val totalWordsLabel = totalWordsDefault
+  override val timeRemainingBookLabel = "Book Remaining"
+  override val timeRemainingChapterLabel = "Current Chapter"
+  override val chapterProgressChartTitle = "Chapter Progress & Time Chart"
+  override val chapterChartHint = "Tap any bar to inspect chapter length, completion & time left"
+  override val chapterBreakdownTitle = "Time Remaining per Chapter"
+  override val completedChaptersSummary: (Int, Int) -> String = { done, total -> "$done / $total chapters finished" }
+  override val wpmValueLabel: (Int) -> String = { wpm -> "$wpm WPM" }
+  override val pagesPerHourLabel: (Int) -> String = { pph -> "~$pph pg/hr" }
+  override val speedMultiplierLabel: (Float) -> String = { spd -> String.format("%.2g× speed", spd) }
+  override val wordsCountLabel: (Int) -> String = { words -> "${String.format("%,d", words)} words" }
+  override val chapterDoneLabel = "Done"
+  override val chapterInProgressLabel = "Reading"
+  override val chapterUpcomingLabel = "Unread"
+  override val openAtChapterAction = "Read"
+  override val noChaptersInsightsMessage = "No chapter structure available yet for this file."
+  override val highlightsCountLabel: (Int) -> String = { n -> "$n highlights" }
+  override val bookmarksCountLabel: (Int) -> String = { n -> "$n bookmarks" }
 }
 
 object PersianStrings : AppStrings {
@@ -880,6 +994,62 @@ object PersianStrings : AppStrings {
   override val reorderChaptersAction = "مرتب‌سازی و چیدمان فصل‌ها"
   override val moveUpAction = "انتقال به قبل"
   override val moveDownAction = "انتقال به بعد"
+  override val readingRulerSection = "خط‌کش مطالعه و راهنمای خط"
+  override val readingRulerToggle = "پوشش خط‌کش تمرکز"
+  override val readingRulerSub = "نوار تمرکز یا خط‌کش قابل جابه‌جایی برای گم‌نکردن خط هنگام مطالعه"
+  override val readingRulerStyleLabel = "سبک راهنما"
+  override val readingRulerHeightLabel = "ارتفاع نوار"
+  override val readingRulerOpacityLabel = "تیرگی اطراف"
+  override val readingRulerDragHint = "دستگیره کناری را بالا و پایین بکشید تا خط‌کش جابه‌جا شود"
+  override val importMenuTitle = "افزودن به کتابخانه"
+  override val importBookOption = "افزودن کتاب یا سند"
+  override val importBookOptionSub = "فایل‌های EPUB، PDF، TXT، Markdown، FB2 یا CBZ"
+  override val importAudioFilesOption = "افزودن فایل کتاب صوتی"
+  override val importAudioFilesOptionSub = "فایل M4B (با فصل‌بندی)، MP3، M4A، AAC یا OGG"
+  override val importAudioFolderOption = "افزودن پوشه کتاب صوتی"
+  override val importAudioFolderOptionSub = "افزودن یکجای پوشه بدون نیاز به مجوز حافظه با مرتب‌سازی خودکار"
+  override val audiobookTitle = "کتاب صوتی"
+  override val audiobookChaptersTitle = "بخش‌ها و فصل‌ها"
+  override val audiobookTrackOf: (Int, Int) -> String = { cur, tot -> "بخش $cur از $tot" }
+  override val audiobookSpeedLabel = "سرعت"
+  override val companionSyncTitle = "همگام‌سازی کتاب و صوت"
+  override val companionSyncSub = "همگام‌سازی درصد پیشرفت بین کتاب صوتی و نسخه متنی در کتابخانه"
+  override val linkCompanionBookAction = "اتصال کتاب"
+  override val unlinkCompanionBookAction = "قطع اتصال"
+  override val noCompanionBookLinked = "هنوز کتاب همراهی متصل نشده است"
+  override val pullFromBookAction = "پرش به درصد کتاب"
+  override val pushToBookAction = "ارسال درصد به کتاب"
+  override val openCompanionBookAction = "مطالعه کتاب متصل"
+  override val syncCompletedMessage = "پیشرفت کتاب صوتی و نسخه متنی همگام شد"
+  override val selectCompanionBookTitle = "انتخاب کتاب متنی همراه"
+  override val noEligibleCompanionBooks = "ابتدا یک کتاب متنی (EPUB، PDF و…) وارد کنید تا متصل شود."
+  override val audioTrackError = "امکان پخش فایل صوتی وجود ندارد. دسترسی فایل یا پوشه را بررسی کنید."
+  override val bookInfoTitle = "مشخصات و تحلیل کتاب"
+  override val bookInfoMenuAction = "اطلاعات کتاب و تحلیل مطالعه"
+  override val readingInsightsTitle = "تحلیل و سرعت مطالعه"
+  override val readingInsightsSubtitle = "سرعت مطالعه، پیشرفت فصل‌ها و زمان باقی‌مانده"
+  override val readingSpeedLabel = "سرعت مطالعه"
+  override val measuredPaceBadge = "اندازه‌گیری‌شده"
+  override val baselinePaceBadge = "تخمینی"
+  override val timeReadLabel = "زمان مطالعه‌شده"
+  override val totalWordsLabel = "تعداد واژه‌ها"
+  override val timeRemainingBookLabel = "زمان باقی‌مانده کتاب"
+  override val timeRemainingChapterLabel = "فصل فعلی"
+  override val chapterProgressChartTitle = "نمودار پیشرفت و زمان فصل‌ها"
+  override val chapterChartHint = "روی هر ستون ضربه بزنید تا پیشرفت و زمان باقی‌مانده فصل را ببینید"
+  override val chapterBreakdownTitle = "زمان باقی‌مانده به تفکیک فصل"
+  override val completedChaptersSummary: (Int, Int) -> String = { done, total -> "$done از $total فصل خوانده شد" }
+  override val wpmValueLabel: (Int) -> String = { wpm -> "$wpm واژه/دقیقه" }
+  override val pagesPerHourLabel: (Int) -> String = { pph -> "~$pph صفحه/ساعت" }
+  override val speedMultiplierLabel: (Float) -> String = { spd -> String.format("سرعت %.2g×", spd) }
+  override val wordsCountLabel: (Int) -> String = { words -> "${String.format("%,d", words)} واژه" }
+  override val chapterDoneLabel = "تکمیل‌شده"
+  override val chapterInProgressLabel = "در حال مطالعه"
+  override val chapterUpcomingLabel = "خوانده‌نشده"
+  override val openAtChapterAction = "مطالعه"
+  override val noChaptersInsightsMessage = "ساختار فصلی برای این فایل در دسترس نیست."
+  override val highlightsCountLabel: (Int) -> String = { n -> "$n هایلایت" }
+  override val bookmarksCountLabel: (Int) -> String = { n -> "$n نشانک" }
 }
 
 fun AppLanguage.strings(): AppStrings =

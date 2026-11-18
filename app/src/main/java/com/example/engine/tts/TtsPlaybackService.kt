@@ -24,10 +24,11 @@ interface TtsMediaCallbacks {
   fun onMediaNext()
   fun onMediaPrevious()
   fun onMediaStop()
+  fun onMediaSeekTo(positionMs: Long) {}
 }
 
 /**
- * Bridge connecting the foreground MediaSession service with the active ReaderViewModel.
+ * Bridge connecting the foreground MediaSession service with active Reader TTS or Audiobook playback.
  */
 object TtsMediaBridge {
   @Volatile var callbacks: TtsMediaCallbacks? = null
@@ -35,6 +36,9 @@ object TtsMediaBridge {
   @Volatile var chapterTitle: String = "Listen Mode"
   @Volatile var isPlaying: Boolean = false
   @Volatile var bookId: String? = null
+  @Volatile var durationMs: Long = 0L
+  @Volatile var positionMs: Long = 0L
+  @Volatile var playbackSpeed: Float = 1.0f
   @Volatile var serviceRunning: Boolean = false
 
   fun syncState(
@@ -43,11 +47,17 @@ object TtsMediaBridge {
     bookTitle: String,
     chapterTitle: String,
     isPlaying: Boolean,
+    durationMs: Long = 0L,
+    positionMs: Long = 0L,
+    playbackSpeed: Float = 1.0f,
   ) {
     this.bookId = bookId
     this.bookTitle = bookTitle.ifBlank { "PageNest" }
     this.chapterTitle = chapterTitle.ifBlank { "Listen Mode" }
     this.isPlaying = isPlaying
+    this.durationMs = durationMs.coerceAtLeast(0L)
+    this.positionMs = positionMs.coerceAtLeast(0L)
+    this.playbackSpeed = playbackSpeed.coerceIn(0.5f, 3.0f)
 
     if (isPlaying) {
       val intent = Intent(context, TtsPlaybackService::class.java).setAction(TtsPlaybackService.ACTION_SYNC)
@@ -106,6 +116,10 @@ class TtsPlaybackService : Service() {
               TtsMediaBridge.callbacks?.onMediaStop()
               stopForegroundAndSelf()
             }
+
+            override fun onSeekTo(pos: Long) {
+              TtsMediaBridge.callbacks?.onMediaSeekTo(pos.coerceAtLeast(0L))
+            }
           }
         )
         isActive = true
@@ -134,31 +148,37 @@ class TtsPlaybackService : Service() {
     val title = TtsMediaBridge.bookTitle
     val subtitle = TtsMediaBridge.chapterTitle
 
+    val durationMs = TtsMediaBridge.durationMs
+    val positionMs = TtsMediaBridge.positionMs
+    val speed = TtsMediaBridge.playbackSpeed
     val stateActions =
       PlaybackState.ACTION_PLAY or
         PlaybackState.ACTION_PAUSE or
         PlaybackState.ACTION_PLAY_PAUSE or
         PlaybackState.ACTION_SKIP_TO_NEXT or
         PlaybackState.ACTION_SKIP_TO_PREVIOUS or
-        PlaybackState.ACTION_STOP
+        PlaybackState.ACTION_STOP or
+        (if (durationMs > 0L) PlaybackState.ACTION_SEEK_TO else 0L)
 
     val playbackState =
       PlaybackState.Builder()
         .setActions(stateActions)
         .setState(
           if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
-          PlaybackState.PLAYBACK_POSITION_UNKNOWN,
-          1.0f,
+          if (durationMs > 0L) positionMs else PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+          if (isPlaying) speed else 0f,
         )
         .build()
     mediaSession?.setPlaybackState(playbackState)
 
-    val metadata =
+    val metadataBuilder =
       MediaMetadata.Builder()
         .putString(MediaMetadata.METADATA_KEY_TITLE, title)
         .putString(MediaMetadata.METADATA_KEY_ARTIST, subtitle)
-        .build()
-    mediaSession?.setMetadata(metadata)
+    if (durationMs > 0L) {
+      metadataBuilder.putLong(MediaMetadata.METADATA_KEY_DURATION, durationMs)
+    }
+    mediaSession?.setMetadata(metadataBuilder.build())
 
     val openIntent =
       Intent(this, MainActivity::class.java).apply {

@@ -14,6 +14,8 @@ import com.example.engine.cbz.CbzSession
 import com.example.engine.epub.EpubParser
 import com.example.engine.fonts.FontManager
 import com.example.engine.formats.TextFormatsConverter
+import com.example.engine.insights.BookReadingInsights
+import com.example.engine.insights.ReadingInsightsEngine
 import com.example.engine.pdf.PdfEngine
 import com.example.engine.pdf.PdfSession
 import com.example.engine.translate.TargetLanguageOption
@@ -36,6 +38,7 @@ import com.example.model.ReaderFontOption
 import com.example.model.ReaderMode
 import com.example.model.ReaderSettings
 import com.example.model.ReadingLayoutMode
+import com.example.model.ReadingRulerStyle
 import com.example.model.ReadingThemeMode
 import com.example.model.SelectionAnchor
 import com.example.model.SleepTimerPreset
@@ -51,10 +54,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -133,6 +135,7 @@ data class ReaderUiState(
   val focusTimer: FocusTimerState = FocusTimerState(),
   val liveBrightnessPreview: Float? = null,
   val sessionElapsedSeconds: Int = 0,
+  val bookInsights: BookReadingInsights? = null,
   val toastMessage: String? = null,
 ) {
   val selectedText: String
@@ -169,22 +172,47 @@ data class ReaderUiState(
 
   val formattedTimeRemaining: String
     get() {
+      val insights = bookInsights
       val totalMinutes =
-        when (documentState) {
-          is ReaderDocumentState.EpubReady -> {
-            val remainingUnits = (totalUnits - currentChapterOrPage - currentScrollFraction).coerceAtLeast(0.1f)
-            remainingUnits * 4.5f
+        if (insights != null && insights.chapters.isNotEmpty()) {
+          when (documentState) {
+            is ReaderDocumentState.EpubReady -> {
+              val chList = insights.chapters
+              val curIdx = currentChapterOrPage.coerceIn(0, chList.lastIndex)
+              val curRem = chList[curIdx].estimatedTotalMinutes * (1f - currentScrollFraction.coerceIn(0f, 1f))
+              val followingRem = chList.drop(curIdx + 1).sumOf { it.estimatedTotalMinutes.toDouble() }.toFloat()
+              (curRem + followingRem).coerceAtLeast(0.5f)
+            }
+            is ReaderDocumentState.PdfReady, is ReaderDocumentState.CbzReady -> {
+              val remainingPages = (totalUnits - currentChapterOrPage - 1).coerceAtLeast(1)
+              val pph = insights.pagesPerHour.coerceIn(10, 180)
+              (remainingPages.toFloat() * 60f) / pph.toFloat()
+            }
+            else -> insights.remainingEstimatedMinutes.coerceAtLeast(0.5f)
           }
-          is ReaderDocumentState.PdfReady, is ReaderDocumentState.CbzReady -> {
-            val remainingPages = (totalUnits - currentChapterOrPage).coerceAtLeast(1)
-            remainingPages * 1.4f
+        } else {
+          when (documentState) {
+            is ReaderDocumentState.EpubReady -> {
+              val remainingUnits = (totalUnits - currentChapterOrPage - currentScrollFraction).coerceAtLeast(0.1f)
+              remainingUnits * 4.5f
+            }
+            is ReaderDocumentState.PdfReady, is ReaderDocumentState.CbzReady -> {
+              val remainingPages = (totalUnits - currentChapterOrPage).coerceAtLeast(1)
+              remainingPages * 1.4f
+            }
+            else -> 12f
           }
-          else -> 12f
         }
       val totalSeconds = (totalMinutes * 60f).roundToInt().coerceAtLeast(30)
-      val mins = (totalSeconds / 60).coerceAtMost(999)
-      val secs = totalSeconds % 60
-      return String.format("%d:%02d", mins, secs)
+      val totalMins = totalSeconds / 60
+      return if (totalMins >= 60) {
+        val h = totalMins / 60
+        val m = totalMins % 60
+        if (m > 0) "${h}h ${m}m" else "${h}h"
+      } else {
+        val secs = totalSeconds % 60
+        String.format("%d:%02d", totalMins, secs)
+      }
     }
 
   val isCurrentLocationBookmarked: Boolean
@@ -210,6 +238,8 @@ class ReaderViewModel(
   private val cbzEngine: CbzEngine,
   private val fontManager: FontManager,
   private val textTranslator: TextTranslator,
+  private val initialChapterIndex: Int = -1,
+  private val readingInsightsEngine: ReadingInsightsEngine? = null,
 ) : ViewModel() {
 
   private val appContext = context.applicationContext
@@ -226,6 +256,7 @@ class ReaderViewModel(
   private val focusTimerState = MutableStateFlow(FocusTimerState())
   private val liveBrightnessPreview = MutableStateFlow<Float?>(null)
   private val sessionElapsedSeconds = MutableStateFlow(0)
+  private val bookInsightsState = MutableStateFlow<BookReadingInsights?>(null)
 
   private var saveJob: Job? = null
   private var searchJob: Job? = null
@@ -234,6 +265,10 @@ class ReaderViewModel(
   private var sleepTimerJob: Job? = null
   private var focusTimerJob: Job? = null
   private var unflushedReadingSeconds: Int = 0
+  private var pendingDeltaWords: Long = 0L
+  private var pendingDeltaUnits: Int = 0
+  private var lastTelemetryChapterOrPage: Int = 0
+  private var lastTelemetryScrollFraction: Float = 0f
   private val visitedPageKeysInSession = mutableSetOf<String>()
   private var isSessionPageBaselineRecorded = false
   private var pdfSessionRef: PdfSession? = null
@@ -269,6 +304,7 @@ class ReaderViewModel(
     val ambient: AmbientSoundType,
     val focus: FocusTimerState,
     val brightnessPreview: Float?,
+    val insights: BookReadingInsights?,
   )
 
   private data class AuxTuple(
@@ -304,7 +340,8 @@ class ReaderViewModel(
             activeAmbientSound,
             focusTimerState,
             liveBrightnessPreview,
-          ) { sl, am, fo, bp -> AudioFocusAux(sl, am, fo, bp) },
+            bookInsightsState,
+          ) { sl, am, fo, bp, ins -> AudioFocusAux(sl, am, fo, bp, ins) },
         ) { tts, fonts, trans, sec, af -> SessionAux(tts, fonts, trans, sec, af) },
       ) { d, p, c, s, sa ->
         AuxTuple(d, p, c, s, sa.tts, sa.customFonts, sa.translation, sa.sessionSeconds, sa.audioFocus)
@@ -340,6 +377,7 @@ class ReaderViewModel(
         focusTimer = aux.audioFocus.focus,
         liveBrightnessPreview = aux.audioFocus.brightnessPreview,
         sessionElapsedSeconds = aux.sessionSeconds,
+        bookInsights = aux.audioFocus.insights,
         toastMessage = aux.chrome.toastMessage,
       )
     }.stateIn(
@@ -361,6 +399,27 @@ class ReaderViewModel(
     observeTtsConfig()
     observeMediaControlsBridge()
     observeFocusConfigSync()
+    observeInsightsUpdates()
+  }
+
+  private fun observeInsightsUpdates() {
+    val engine = readingInsightsEngine ?: return
+    viewModelScope.launch {
+      engine.telemetryUpdatedTick.collect {
+        val currentDoc = docState.value
+        if (currentDoc !is ReaderDocumentState.Loading && currentDoc !is ReaderDocumentState.Error) {
+          refreshBookInsights()
+        }
+      }
+    }
+  }
+
+  private suspend fun refreshBookInsights() {
+    val engine = readingInsightsEngine ?: return
+    val book = readerRepository.getBookById(bookId) ?: return
+    val daily = readerRepository.observeAllDailyStats().first()
+    val history = readerRepository.observeBookProgressHistory(bookId).first()
+    bookInsightsState.value = engine.buildInsightsForBook(book, daily, history)
   }
 
   private fun observeTtsConfig() {
@@ -484,16 +543,23 @@ class ReaderViewModel(
             }
           loadResult
             .onSuccess { parsed ->
-              val safeIndex = book.currentChapterOrPage.coerceIn(0, parsed.chapters.lastIndex)
+              val safeIndex =
+                if (initialChapterIndex >= 0) initialChapterIndex.coerceIn(0, parsed.chapters.lastIndex)
+                else book.currentChapterOrPage.coerceIn(0, parsed.chapters.lastIndex)
+              val safeScroll =
+                if (initialChapterIndex >= 0 && initialChapterIndex != book.currentChapterOrPage) 0f
+                else book.currentScrollFraction.coerceIn(0f, 1f)
+              lastTelemetryChapterOrPage = safeIndex
+              lastTelemetryScrollFraction = safeScroll
               positionState.value =
                 PositionState(
                   chapterOrPage = safeIndex,
-                  scrollFraction = book.currentScrollFraction.coerceIn(0f, 1f),
+                  scrollFraction = safeScroll,
                 )
               readerRepository.updateTotalUnits(book.id, parsed.chapters.size)
               docState.value = ReaderDocumentState.EpubReady(parsed, fontsDir)
               val startPercent =
-                ((safeIndex + book.currentScrollFraction.coerceIn(0f, 1f)) /
+                ((safeIndex + safeScroll) /
                     parsed.chapters.size.coerceAtLeast(1).toFloat()) * 100f
               readerRepository.recordBookProgressSnapshot(
                 bookId = book.id,
@@ -502,6 +568,7 @@ class ReaderViewModel(
                 forceInitialOnly = true,
               )
               persistProgressNow()
+              refreshBookInsights()
               startReadingTimer()
             }
             .onFailure { err ->
@@ -514,7 +581,10 @@ class ReaderViewModel(
             .openSession(file)
             .onSuccess { session ->
               pdfSessionRef = session
-              val safePage = book.currentChapterOrPage.coerceIn(0, session.pageCount - 1)
+              val safePage =
+                if (initialChapterIndex >= 0) initialChapterIndex.coerceIn(0, session.pageCount - 1)
+                else book.currentChapterOrPage.coerceIn(0, session.pageCount - 1)
+              lastTelemetryChapterOrPage = safePage
               positionState.value =
                 PositionState(
                   chapterOrPage = safePage,
@@ -533,6 +603,7 @@ class ReaderViewModel(
                 forceInitialOnly = true,
               )
               persistProgressNow()
+              refreshBookInsights()
               startReadingTimer()
             }
             .onFailure { err ->
@@ -545,7 +616,10 @@ class ReaderViewModel(
             .openSession(file)
             .onSuccess { session ->
               cbzSessionRef = session
-              val safePage = book.currentChapterOrPage.coerceIn(0, session.pageCount - 1)
+              val safePage =
+                if (initialChapterIndex >= 0) initialChapterIndex.coerceIn(0, session.pageCount - 1)
+                else book.currentChapterOrPage.coerceIn(0, session.pageCount - 1)
+              lastTelemetryChapterOrPage = safePage
               positionState.value =
                 PositionState(
                   chapterOrPage = safePage,
@@ -564,12 +638,17 @@ class ReaderViewModel(
                 forceInitialOnly = true,
               )
               persistProgressNow()
+              refreshBookInsights()
               startReadingTimer()
             }
             .onFailure { err ->
               docState.value =
                 ReaderDocumentState.Error(err.message ?: "Failed to open CBZ comic archive.")
             }
+        }
+        BookFormat.AUDIOBOOK -> {
+          docState.value =
+            ReaderDocumentState.Error("Audiobooks open in the dedicated Audiobook Player.")
         }
       }
     }
@@ -584,12 +663,29 @@ class ReaderViewModel(
           sessionElapsedSeconds.update { it + 1 }
           unflushedReadingSeconds++
           if (unflushedReadingSeconds >= 5) {
-            val delta = unflushedReadingSeconds
-            unflushedReadingSeconds = 0
-            readerRepository.recordReadingTime(delta)
+            flushSessionTelemetryInternal()
           }
         }
       }
+  }
+
+  private suspend fun flushSessionTelemetryInternal() {
+    val deltaSec = unflushedReadingSeconds
+    val deltaWords = pendingDeltaWords
+    val deltaUnits = pendingDeltaUnits
+    if (deltaSec <= 0 && deltaWords <= 0L && deltaUnits <= 0) return
+    unflushedReadingSeconds = 0
+    pendingDeltaWords = 0L
+    pendingDeltaUnits = 0
+    if (deltaSec > 0) {
+      readerRepository.recordReadingTime(deltaSec)
+    }
+    readingInsightsEngine?.recordSessionProgress(
+      bookId = bookId,
+      deltaSeconds = deltaSec,
+      deltaWords = deltaWords,
+      deltaUnits = deltaUnits,
+    )
   }
 
   fun toggleControls() {
@@ -818,7 +914,19 @@ class ReaderViewModel(
   }
 
   fun onEpubScrollFractionChanged(fraction: Float) {
-    positionState.update { it.copy(scrollFraction = fraction.coerceIn(0f, 1f), pendingAnchor = null) }
+    val clamped = fraction.coerceIn(0f, 1f)
+    val ch = positionState.value.chapterOrPage
+    if (ch == lastTelemetryChapterOrPage && clamped > lastTelemetryScrollFraction) {
+      val deltaFrac = (clamped - lastTelemetryScrollFraction).coerceIn(0f, 0.5f)
+      val chapterWords = bookInsightsState.value?.chapters?.getOrNull(ch)?.wordCount ?: 600
+      val estWords = (deltaFrac * chapterWords).toLong()
+      if (estWords > 0L) {
+        pendingDeltaWords += estWords
+      }
+    }
+    lastTelemetryChapterOrPage = ch
+    lastTelemetryScrollFraction = clamped
+    positionState.update { it.copy(scrollFraction = clamped, pendingAnchor = null) }
     scheduleProgressSave()
   }
 
@@ -830,6 +938,7 @@ class ReaderViewModel(
       return
     }
     if (visitedPageKeysInSession.add(unitKey)) {
+      pendingDeltaUnits += 1
       viewModelScope.launch {
         readerRepository.recordPagesRead(1)
       }
@@ -840,11 +949,7 @@ class ReaderViewModel(
     saveJob?.cancel()
     viewModelScope.launch {
       withContext(NonCancellable) {
-        if (unflushedReadingSeconds > 0) {
-          val delta = unflushedReadingSeconds
-          unflushedReadingSeconds = 0
-          readerRepository.recordReadingTime(delta)
-        }
+        flushSessionTelemetryInternal()
         persistProgressSync()
       }
     }
@@ -873,11 +978,14 @@ class ReaderViewModel(
   fun goToChapter(chapterIndex: Int, scrollFraction: Float = 0f, anchor: String? = null) {
     val total = uiState.value.totalUnits
     val safe = chapterIndex.coerceIn(0, total - 1)
+    val clampedFrac = scrollFraction.coerceIn(0f, 1f)
     saveJob?.cancel()
+    lastTelemetryChapterOrPage = safe
+    lastTelemetryScrollFraction = clampedFrac
     positionState.update {
       it.copy(
         chapterOrPage = safe,
-        scrollFraction = scrollFraction.coerceIn(0f, 1f),
+        scrollFraction = clampedFrac,
         pendingAnchor = anchor,
         jumpToEpubSignal = it.jumpToEpubSignal + 1,
       )
@@ -1185,6 +1293,26 @@ class ReaderViewModel(
     viewModelScope.launch { readerRepository.updateSettings { it.copy(volumeKeyPageTurnEnabled = enabled) } }
   }
 
+  fun setReadingRulerEnabled(enabled: Boolean) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(readingRulerEnabled = enabled) } }
+  }
+
+  fun setReadingRulerStyle(style: ReadingRulerStyle) {
+    viewModelScope.launch { readerRepository.updateSettings { it.copy(readingRulerStyle = style) } }
+  }
+
+  fun setReadingRulerHeightDp(heightDp: Int) {
+    viewModelScope.launch {
+      readerRepository.updateSettings { it.copy(readingRulerHeightDp = heightDp.coerceIn(32, 140)) }
+    }
+  }
+
+  fun setReadingRulerDimAlpha(alpha: Float) {
+    viewModelScope.launch {
+      readerRepository.updateSettings { it.copy(readingRulerDimAlpha = alpha.coerceIn(0.15f, 0.75f)) }
+    }
+  }
+
   fun applyComfortPreset(preset: ComfortPreset) {
     viewModelScope.launch {
       readerRepository.updateSettings { current ->
@@ -1271,11 +1399,7 @@ class ReaderViewModel(
     readingTimerJob?.cancel()
     viewModelScope.launch {
       withContext(NonCancellable) {
-        if (unflushedReadingSeconds > 0) {
-          val rem = unflushedReadingSeconds
-          unflushedReadingSeconds = 0
-          readerRepository.recordReadingTime(rem)
-        }
+        flushSessionTelemetryInternal()
         persistProgressSync()
         readerRepository.setLastOpenedBookId(null)
       }
@@ -1348,6 +1472,8 @@ class ReaderViewModel(
     private val cbzEngine: CbzEngine,
     private val fontManager: FontManager,
     private val textTranslator: TextTranslator,
+    private val initialChapterIndex: Int = -1,
+    private val readingInsightsEngine: ReadingInsightsEngine? = null,
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -1361,6 +1487,8 @@ class ReaderViewModel(
         cbzEngine = cbzEngine,
         fontManager = fontManager,
         textTranslator = textTranslator,
+        initialChapterIndex = initialChapterIndex,
+        readingInsightsEngine = readingInsightsEngine,
       ) as T
     }
   }
