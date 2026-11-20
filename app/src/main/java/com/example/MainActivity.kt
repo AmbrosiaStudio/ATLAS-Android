@@ -15,9 +15,9 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.ReaderSettings
 import com.example.ui.navigation.LocalVolumeKeyDispatcher
-import com.example.ui.navigation.PageNestNavGraph
 import com.example.ui.navigation.VolumeKeyDispatcher
-import com.example.ui.theme.PageNestTheme
+import com.example.ui.swiss.SwissAtlasMainShell
+import com.example.ui.swiss.SwissAtlasTheme
 import com.example.widget.PageNestContinueWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -50,11 +50,11 @@ class MainActivity : ComponentActivity() {
       }
 
       CompositionLocalProvider(LocalVolumeKeyDispatcher provides volumeKeyDispatcher) {
-        PageNestTheme(
-          themeMode = settings.themeMode,
+        SwissAtlasTheme(
+          isDark = isDark,
           appLanguage = settings.appLanguage,
         ) {
-          PageNestNavGraph(
+          SwissAtlasMainShell(
             container = appContainer,
             widgetBookId = widgetBookId,
             onConsumeWidgetBookId = { pendingWidgetBookId.value = null },

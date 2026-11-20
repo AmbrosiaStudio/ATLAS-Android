@@ -98,7 +98,7 @@ object WriterEpubExporter {
       val epubFile = File(exportDir, "studio_${book.id}.epub")
       val coverBytes = renderStudioCoverBytes(book)
       val safeTitle = escapeXml(book.title.ifBlank { "Untitled Draft" })
-      val safeAuthor = escapeXml(book.author.ifBlank { "PageNest Author" })
+      val safeAuthor = escapeXml(book.author.ifBlank { "ATLAS Author" })
       val langCode = if (book.isRtl) "fa" else "en"
       val spineDirAttr = if (book.isRtl) """ page-progression-direction="rtl"""" else ""
 
@@ -158,7 +158,7 @@ object WriterEpubExporter {
           <?xml version="1.0" encoding="UTF-8"?>
           <package xmlns="http://www.idpf.org/2007/opf" version="3.0" xml:lang="$langCode" unique-identifier="StudioBookId">
             <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-              <dc:identifier id="StudioBookId">urn:uuid:pagenest-studio-${escapeXml(book.id)}</dc:identifier>
+              <dc:identifier id="StudioBookId">urn:uuid:atlas-studio-${escapeXml(book.id)}</dc:identifier>
               <dc:title>$safeTitle</dc:title>
               <dc:creator>$safeAuthor</dc:creator>
               <dc:language>$langCode</dc:language>$descriptionMeta
@@ -437,7 +437,7 @@ object WriterEpubExporter {
         textSize = 19f
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
       }
-    val authorText = book.author.trim().ifBlank { "PageNest Writer" }
+    val authorText = book.author.trim().ifBlank { "ATLAS Writer" }
     val authorLayout =
       StaticLayout.Builder.obtain(authorText, 0, authorText.length, authorPaint, 324)
         .setAlignment(alignment)

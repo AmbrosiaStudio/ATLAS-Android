@@ -1,7 +1,7 @@
 <resources>
-    <string name="app_name">پیج‌نست</string>
+    <string name="app_name">اطلس</string>
     <string name="library_title">کتابخانه</string>
-    <string name="library_subtitle">کتابخانه آرام و شیشه‌ای شما</string>
+    <string name="library_subtitle">قفسه آرام و مدرن مطالعه شما</string>
     <string name="import_book">افزودن کتاب</string>
     <string name="import_epub_or_pdf">افزودن EPUB یا PDF</string>
     <string name="empty_library_title">قفسه مطالعه شما آماده است</string>
@@ -26,4 +26,5 @@
     <string name="widget_continue_description">ادامه آخرین کتاب و نمایش پیشرفت هدف مطالعه امروز.</string>
     <string name="widget_stats_description">نمایش زمان مطالعه امروز، مجموع صفحات، رشته مطالعه و نمودار ۷ روز اخیر.</string>
     <string name="widget_streak_description">نشان کوچک ۱×۱ با آیکون شعله و تعداد روزهای متوالی مطالعه.</string>
+    <string name="widget_shelf_description">قفسه سریع با ۳ کتاب اخیر شما و نمایش آخرین نقل‌قول هایلایت‌شده.</string>
 </resources>

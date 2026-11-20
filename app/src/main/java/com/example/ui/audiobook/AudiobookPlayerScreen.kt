@@ -156,7 +156,7 @@ fun AudiobookPlayerScreen(
     }
   }
 
-  val onAccent = if (palette.isDark) Color(0xFF082115) else Color.White
+  val onAccent = if (palette.isDark) Color(0xFF071630) else Color.White
 
   Scaffold(
     containerColor = palette.background,

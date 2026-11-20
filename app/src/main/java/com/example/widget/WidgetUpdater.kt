@@ -9,5 +9,6 @@ object WidgetUpdater {
     runCatching { PageNestContinueWidget().updateAll(appContext) }
     runCatching { PageNestStatsWidget().updateAll(appContext) }
     runCatching { PageNestStreakWidget().updateAll(appContext) }
+    runCatching { AtlasShelfWidget().updateAll(appContext) }
   }
 }

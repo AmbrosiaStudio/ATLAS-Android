@@ -630,7 +630,7 @@ class TextFormatsConverter(private val context: Context) {
     val lines = manifest.readLines()
     if (lines.size < 3) return null
     val title = lines[0].ifBlank { fallbackTitle }
-    val author = lines[1].ifBlank { "PageNest" }
+    val author = lines[1].ifBlank { "ATLAS" }
     val chapters = mutableListOf<EpubChapter>()
     val toc = mutableListOf<EpubTocItem>()
     lines.drop(2).forEachIndexed { idx, row ->

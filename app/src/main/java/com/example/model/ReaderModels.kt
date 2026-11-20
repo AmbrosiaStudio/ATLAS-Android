@@ -250,6 +250,7 @@ data class ReaderSettings(
   val readingRulerStyle: ReadingRulerStyle = ReadingRulerStyle.SPOTLIGHT_BAND,
   val readingRulerHeightDp: Int = 56,
   val readingRulerDimAlpha: Float = 0.45f,
+  val swissUiPreviewEnabled: Boolean = false,
 )
 
 data class EpubChapter(

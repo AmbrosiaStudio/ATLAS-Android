@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
@@ -31,7 +32,20 @@
         </activity>
 
         <receiver
+            android:name=".notifications.StreakReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="atlas.mrmabrosia.ir.ACTION_STREAK_REMINDER" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".widget.PageNestContinueWidgetReceiver"
+            android:label="@string/widget_continue_name"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -43,6 +57,7 @@
 
         <receiver
             android:name=".widget.PageNestStatsWidgetReceiver"
+            android:label="@string/widget_stats_name"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -54,6 +69,7 @@
 
         <receiver
             android:name=".widget.PageNestStreakWidgetReceiver"
+            android:label="@string/widget_streak_name"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -61,6 +77,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/streak_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.AtlasShelfWidgetReceiver"
+            android:label="@string/widget_shelf_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/shelf_widget_info" />
         </receiver>
         <service
             android:name=".engine.tts.TtsPlaybackService"

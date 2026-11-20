@@ -2,6 +2,7 @@ package com.example.ui.reader.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Bookmark
@@ -37,19 +39,24 @@ import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FormatAlignJustify
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.HorizontalRule
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,8 +69,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -83,6 +88,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -107,6 +113,14 @@ import com.example.model.TextAlignOption
 import com.example.ui.i18n.LocalAppStrings
 import com.example.ui.reader.FocusTimerState
 import com.example.ui.reader.SleepTimerState
+import com.example.ui.theme.AtlasGroupedCard
+import com.example.ui.theme.AtlasHairlineDivider
+import com.example.ui.theme.AtlasOnAccentDark
+import com.example.ui.theme.AtlasRadioDot
+import com.example.ui.theme.AtlasSegmentedControl
+import com.example.ui.theme.AtlasSliderRow
+import com.example.ui.theme.AtlasToggleRow
+import com.example.ui.theme.AtlasVerticalCapsuleSlider
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LiterataFontFamily
 import com.example.ui.theme.LoraFontFamily
@@ -124,88 +138,370 @@ fun ThemeBrightnessSheet(
   settings: ReaderSettings,
   palette: ReadingPalette,
   bookFormat: BookFormat,
+  readerMode: ReaderMode = ReaderMode.READ,
   onSelectTheme: (ReadingThemeMode) -> Unit,
   onChangeBrightness: (Float) -> Unit,
+  onChangeFontSize: (Int) -> Unit = {},
+  onSelectLayoutMode: (ReadingLayoutMode) -> Unit = {},
+  onToggleKeepScreenOn: (Boolean) -> Unit = {},
+  onToggleReadingRuler: (Boolean) -> Unit = {},
   onTogglePaperTexture: (Boolean) -> Unit,
   onToggleBatterySaver: (Boolean) -> Unit,
   onTogglePdfThemeFilter: (Boolean) -> Unit,
+  onOpenTypography: () -> Unit = {},
+  onOpenSearch: () -> Unit = {},
+  onToggleListenMode: () -> Unit = {},
   onDismiss: () -> Unit,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val strings = LocalAppStrings.current
   val isFa = settings.appLanguage == AppLanguage.PERSIAN
+  val tileSurface = palette.controlSurface.copy(alpha = if (palette.isDark) 0.85f else 0.78f)
+  val cardSurface = if (palette.isDark) palette.controlSurface.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.75f)
+  val isAutoBrightness = settings.brightnessOverride < 0f
+  val displayBrightness = if (isAutoBrightness) 0.65f else settings.brightnessOverride
+
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
     containerColor = palette.dockSurface,
     contentColor = palette.text,
+    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
   ) {
     Column(
       modifier =
         Modifier
           .fillMaxWidth()
+          .heightIn(max = 640.dp)
           .verticalScroll(rememberScrollState())
           .padding(horizontal = 20.dp)
           .padding(bottom = 28.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+      // Minimalist centered header
       Text(
-        text = strings.readingTheme,
-        style = MaterialTheme.typography.titleMedium,
-        color = palette.text,
+        text = strings.readerSettingsTitle,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = palette.secondaryText,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
       )
 
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ReadingThemeMode.entries.chunked(3).forEach { rowModes ->
-          Row(
+      // Row 1: Circular Theme Swatch Pill Bar + Circular Voice Action
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+      ) {
+        Column(
+          modifier = Modifier.weight(1f),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          Surface(
+            shape = CircleShape,
+            color = tileSurface,
+            border = BorderStroke(1.dp, palette.dockBorder),
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
           ) {
-            rowModes.forEach { mode ->
-              val modePalette = mode.toPalette()
-              val selected = settings.themeMode == mode
-              Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = modePalette.background,
-                border =
-                  BorderStroke(
-                    width = if (selected) 2.dp else 1.dp,
-                    color = if (selected) palette.accent else modePalette.dockBorder,
-                  ),
-                modifier =
-                  Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { onSelectTheme(mode) }
-                    .testTag("theme_swatch_${mode.name.lowercase()}"),
-              ) {
-                Column(
-                  modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
-                  horizontalAlignment = Alignment.CenterHorizontally,
-                  verticalArrangement = Arrangement.spacedBy(4.dp),
+            Row(
+              modifier =
+                Modifier
+                  .fillMaxWidth()
+                  .horizontalScroll(rememberScrollState())
+                  .padding(horizontal = 10.dp, vertical = 9.dp),
+              horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              ReadingThemeMode.entries.forEach { mode ->
+                val modePalette = mode.toPalette()
+                val selected = settings.themeMode == mode
+                Box(
+                  modifier =
+                    Modifier
+                      .size(36.dp)
+                      .clip(CircleShape)
+                      .background(modePalette.background)
+                      .border(
+                        width = if (selected) 2.5.dp else 1.2.dp,
+                        color = if (selected) palette.accent else modePalette.dockBorder,
+                        shape = CircleShape,
+                      )
+                      .clickable { onSelectTheme(mode) }
+                      .testTag("theme_swatch_${mode.name.lowercase()}"),
+                  contentAlignment = Alignment.Center,
                 ) {
-                  Text(
-                    text = "Aa",
-                    fontFamily = LiterataFontFamily,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = modePalette.text,
-                  )
-                  Text(
-                    text = if (isFa) mode.faLabel else mode.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = modePalette.secondaryText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
+                  if (selected) {
+                    Box(
+                      modifier =
+                        Modifier
+                          .size(16.dp)
+                          .clip(CircleShape)
+                          .background(palette.accent),
+                      contentAlignment = Alignment.Center,
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = if (isFa) mode.faLabel else mode.label,
+                        tint = if (palette.isDark) AtlasOnAccentDark else Color.White,
+                        modifier = Modifier.size(11.dp),
+                      )
+                    }
+                  } else {
+                    Text(
+                      text = "A",
+                      fontSize = 12.sp,
+                      fontWeight = FontWeight.SemiBold,
+                      color = modePalette.text.copy(alpha = 0.72f),
+                    )
+                  }
                 }
               }
             }
           }
+          Text(
+            text = "${strings.readingTheme} · ${if (isFa) settings.themeMode.faLabel else settings.themeMode.label}",
+            style = MaterialTheme.typography.labelSmall,
+            color = palette.secondaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+
+        // Circular Voice / Listen quick toggle
+        val listenActive = readerMode == ReaderMode.LISTEN
+        Column(
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          Surface(
+            shape = CircleShape,
+            color = if (listenActive) palette.accent else tileSurface,
+            border =
+              BorderStroke(
+                width = 1.dp,
+                color = if (listenActive) palette.accent else palette.dockBorder,
+              ),
+            modifier =
+              Modifier
+                .size(54.dp)
+                .clip(CircleShape)
+                .clickable(enabled = bookFormat.isReflowableText) {
+                  onToggleListenMode()
+                  onDismiss()
+                }
+                .testTag("control_hub_voice_button"),
+          ) {
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Rounded.GraphicEq,
+                contentDescription = strings.voiceQuickLabel,
+                tint =
+                  when {
+                    !bookFormat.isReflowableText -> palette.secondaryText.copy(alpha = 0.4f)
+                    listenActive -> if (palette.isDark) AtlasOnAccentDark else Color.White
+                    else -> palette.text
+                  },
+                modifier = Modifier.size(22.dp),
+              )
+            }
+          }
+          Text(
+            text = strings.voiceQuickLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (listenActive) palette.accent else palette.secondaryText,
+            maxLines = 1,
+          )
         }
       }
 
-      Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      // Row 2: Bento Control Center Grid (Left: Large Text Customize Tile + 2 Quick Circles;
+      // Right: Search & Flow Squircles + Dual Vertical Capsule Scrubbers for Text Size & Brightness)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+      ) {
+        // Left Column
+        Column(
+          modifier = Modifier.weight(1f),
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          // Large "Aa · Text Customize" Bento Tile -> opens Advanced Typography Studio
+          Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = tileSurface,
+            border = BorderStroke(1.dp, palette.dockBorder),
+            modifier =
+              Modifier
+                .fillMaxWidth()
+                .height(126.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .clickable { onOpenTypography() }
+                .testTag("control_hub_text_customize"),
+          ) {
+            Column(
+              modifier = Modifier.fillMaxWidth().padding(16.dp),
+              verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Text(
+                  text = "Aa",
+                  fontFamily = settings.fontOption.toComposeFontFamily(),
+                  fontSize = 24.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = palette.text,
+                )
+                Icon(
+                  imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                  contentDescription = null,
+                  tint = palette.secondaryText,
+                  modifier = Modifier.size(18.dp),
+                )
+              }
+              Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                  text = strings.textCustomizeTitle,
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = palette.text,
+                  maxLines = 1,
+                )
+                Text(
+                  text = strings.textCustomizeSub,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = palette.secondaryText,
+                  maxLines = 1,
+                )
+              }
+            }
+          }
+
+          Text(
+            text = strings.advancedLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = palette.secondaryText,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+          )
+
+          // Dual Circular Quick Toggles: Keep Screen Awake & Reading Ruler
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            ControlHubCircleToggle(
+              icon = if (settings.keepScreenOn) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+              label = strings.awakeQuickLabel,
+              active = settings.keepScreenOn,
+              palette = palette,
+              tileSurface = tileSurface,
+              testTag = "control_hub_awake_toggle",
+              onClick = { onToggleKeepScreenOn(!settings.keepScreenOn) },
+              modifier = Modifier.weight(1f),
+            )
+            ControlHubCircleToggle(
+              icon = Icons.Rounded.HorizontalRule,
+              label = strings.rulerQuickLabel,
+              active = settings.readingRulerEnabled,
+              palette = palette,
+              tileSurface = tileSurface,
+              testTag = "control_hub_ruler_toggle",
+              onClick = { onToggleReadingRuler(!settings.readingRulerEnabled) },
+              modifier = Modifier.weight(1f),
+            )
+          }
+        }
+
+        // Right Column
+        Column(
+          modifier = Modifier.weight(1f),
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          // Top two quick action squircles: Search + Flow (Paged / Scroll)
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            ControlHubSquircleAction(
+              icon = Icons.Rounded.Search,
+              label = strings.searchTab,
+              active = false,
+              palette = palette,
+              tileSurface = tileSurface,
+              testTag = "control_hub_search_button",
+              onClick = onOpenSearch,
+              modifier = Modifier.weight(1f),
+            )
+            val isScroll = settings.readingLayoutMode == ReadingLayoutMode.SCROLL
+            ControlHubSquircleAction(
+              icon = if (isScroll) Icons.Rounded.SwapVert else Icons.AutoMirrored.Rounded.MenuBook,
+              label = strings.transitionsLabel,
+              active = isScroll,
+              palette = palette,
+              tileSurface = tileSurface,
+              testTag = "control_hub_flow_button",
+              onClick = {
+                val next =
+                  if (isScroll) ReadingLayoutMode.PAGED else ReadingLayoutMode.SCROLL
+                onSelectLayoutMode(next)
+              },
+              modifier = Modifier.weight(1f),
+            )
+          }
+
+          // Side-by-side Vision-Inspired Vertical Capsule Scrubbers (Text Size & Brightness)
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            AtlasVerticalCapsuleSlider(
+              value = settings.fontSizeSp.toFloat(),
+              valueRange = 12f..32f,
+              onValueChange = { onChangeFontSize(it.roundToInt()) },
+              label = strings.textSize,
+              valueBadge = "${settings.fontSizeSp}",
+              accentColor = palette.accent,
+              trackColor = tileSurface,
+              fillColor = palette.accent.copy(alpha = if (palette.isDark) 0.34f else 0.20f),
+              borderColor = palette.dockBorder,
+              iconColor = palette.text,
+              labelColor = palette.secondaryText,
+              glyphText = "Tt",
+              height = 132.dp,
+              modifier = Modifier.weight(1f).testTag("hub_text_size_scrubber"),
+            )
+            AtlasVerticalCapsuleSlider(
+              value = displayBrightness,
+              valueRange = 0.05f..1.0f,
+              onValueChange = { onChangeBrightness(it.coerceIn(0.05f, 1f)) },
+              label = strings.brightness,
+              valueBadge = if (isAutoBrightness) "Auto" else "${(displayBrightness * 100).roundToInt()}%",
+              accentColor = palette.accent,
+              trackColor = tileSurface,
+              fillColor = palette.accent.copy(alpha = if (palette.isDark) 0.34f else 0.20f),
+              borderColor = palette.dockBorder,
+              iconColor = palette.text,
+              labelColor = palette.secondaryText,
+              icon = Icons.Outlined.WbSunny,
+              height = 132.dp,
+              modifier = Modifier.weight(1f).testTag("brightness_slider"),
+            )
+          }
+        }
+      }
+
+      // Brightness Auto/Manual quick bar + Display Options Card
+      AtlasGroupedCard(
+        containerColor = cardSurface,
+        borderColor = palette.dockBorder,
+        contentPadding = 14.dp,
+      ) {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
@@ -213,135 +509,166 @@ fun ThemeBrightnessSheet(
         ) {
           Text(
             text = strings.brightness,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
             color = palette.text,
           )
-          val isAuto = settings.brightnessOverride < 0f
-          FilterChip(
-            selected = isAuto,
-            onClick = {
-              onChangeBrightness(if (isAuto) 0.65f else -1f)
-            },
-            label = {
-              Text(
-                text = if (isAuto) strings.systemAuto else strings.manual,
-                color = if (isAuto) palette.accent else palette.secondaryText,
-              )
-            },
-            colors =
-              FilterChipDefaults.filterChipColors(
-                selectedContainerColor = palette.accent.copy(alpha = 0.16f),
-                selectedLabelColor = palette.accent,
-                labelColor = palette.secondaryText,
-              ),
-          )
-        }
-
-        val displayValue =
-          if (settings.brightnessOverride < 0f) 0.65f else settings.brightnessOverride
-        Slider(
-          value = displayValue,
-          onValueChange = { onChangeBrightness(it.coerceIn(0.05f, 1f)) },
-          valueRange = 0.05f..1.0f,
-          colors =
-            SliderDefaults.colors(
-              thumbColor = palette.accent,
-              activeTrackColor = palette.accent,
-              inactiveTrackColor = palette.controlSurface,
-            ),
-          modifier = Modifier.fillMaxWidth().testTag("brightness_slider"),
-        )
-      }
-
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-          Text(
-            text = strings.paperStyleToggle,
-            style = MaterialTheme.typography.titleSmall,
-            color = palette.text,
-          )
-          Text(
-            text = strings.paperStyleSub,
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.secondaryText,
-          )
-        }
-        Switch(
-          checked = settings.paperTextureEnabled,
-          onCheckedChange = onTogglePaperTexture,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
-          modifier = Modifier.testTag("theme_paper_texture_switch"),
-        )
-      }
-
-      // Battery-Saver Mode toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-          Text(
-            text = strings.batterySaverToggle,
-            style = MaterialTheme.typography.titleSmall,
-            color = palette.text,
-          )
-          Text(
-            text = strings.batterySaverSub,
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.secondaryText,
-          )
-        }
-        Switch(
-          checked = settings.batterySaverModeEnabled,
-          onCheckedChange = onToggleBatterySaver,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
-          modifier = Modifier.testTag("theme_battery_saver_switch"),
-        )
-      }
-
-      if (!bookFormat.isReflowableText) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-          Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+          Surface(
+            shape = CircleShape,
+            color = if (isAutoBrightness) palette.accent.copy(alpha = 0.16f) else tileSurface,
+            border = BorderStroke(1.dp, if (isAutoBrightness) palette.accent else palette.dockBorder),
+            modifier =
+              Modifier
+                .clip(CircleShape)
+                .clickable { onChangeBrightness(if (isAutoBrightness) 0.65f else -1f) }
+                .testTag("brightness_auto_toggle"),
+          ) {
             Text(
-              text = strings.adaptPdfColors,
-              style = MaterialTheme.typography.titleSmall,
-              color = palette.text,
-            )
-            Text(
-              text = strings.adaptPdfColorsSub,
-              style = MaterialTheme.typography.bodySmall,
-              color = palette.secondaryText,
+              text = if (isAutoBrightness) strings.systemAuto else strings.manual,
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.SemiBold,
+              color = if (isAutoBrightness) palette.accent else palette.secondaryText,
+              modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             )
           }
-          Switch(
+        }
+
+        AtlasHairlineDivider(color = palette.divider)
+
+        AtlasToggleRow(
+          title = strings.paperStyleToggle,
+          subtitle = strings.paperStyleSub,
+          checked = settings.paperTextureEnabled,
+          onCheckedChange = onTogglePaperTexture,
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
+          modifier = Modifier.testTag("theme_paper_texture_switch"),
+        )
+
+        AtlasHairlineDivider(color = palette.divider)
+
+        AtlasToggleRow(
+          title = strings.batterySaverToggle,
+          subtitle = strings.batterySaverSub,
+          checked = settings.batterySaverModeEnabled,
+          onCheckedChange = onToggleBatterySaver,
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
+          modifier = Modifier.testTag("theme_battery_saver_switch"),
+        )
+
+        if (!bookFormat.isReflowableText) {
+          AtlasHairlineDivider(color = palette.divider)
+          AtlasToggleRow(
+            title = strings.adaptPdfColors,
+            subtitle = strings.adaptPdfColorsSub,
             checked = settings.pdfThemeFilterEnabled,
             onCheckedChange = onTogglePdfThemeFilter,
-            colors =
-              SwitchDefaults.colors(
-                checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-                checkedTrackColor = palette.accent,
-              ),
+            activeColor = palette.accent,
+            textColor = palette.text,
+            secondaryColor = palette.secondaryText,
+            inactiveTrackColor = palette.controlSurface,
           )
         }
       }
     }
+  }
+}
+
+@Composable
+private fun ControlHubCircleToggle(
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  label: String,
+  active: Boolean,
+  palette: ReadingPalette,
+  tileSurface: Color,
+  testTag: String,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Column(
+    modifier = modifier,
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Surface(
+      shape = CircleShape,
+      color = if (active) palette.accent.copy(alpha = 0.20f) else tileSurface,
+      border = BorderStroke(1.2.dp, if (active) palette.accent else palette.dockBorder),
+      modifier =
+        Modifier
+          .size(54.dp)
+          .clip(CircleShape)
+          .clickable(onClick = onClick)
+          .testTag(testTag),
+    ) {
+      Box(contentAlignment = Alignment.Center) {
+        Icon(
+          imageVector = icon,
+          contentDescription = label,
+          tint = if (active) palette.accent else palette.text,
+          modifier = Modifier.size(21.dp),
+        )
+      }
+    }
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      color = if (active) palette.accent else palette.secondaryText,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+    )
+  }
+}
+
+@Composable
+private fun ControlHubSquircleAction(
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  label: String,
+  active: Boolean,
+  palette: ReadingPalette,
+  tileSurface: Color,
+  testTag: String,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Column(
+    modifier = modifier,
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(5.dp),
+  ) {
+    Surface(
+      shape = RoundedCornerShape(18.dp),
+      color = if (active) palette.accent.copy(alpha = 0.18f) else tileSurface,
+      border = BorderStroke(1.dp, if (active) palette.accent else palette.dockBorder),
+      modifier =
+        Modifier
+          .fillMaxWidth()
+          .height(52.dp)
+          .clip(RoundedCornerShape(18.dp))
+          .clickable(onClick = onClick)
+          .testTag(testTag),
+    ) {
+      Box(contentAlignment = Alignment.Center) {
+        Icon(
+          imageVector = icon,
+          contentDescription = label,
+          tint = if (active) palette.accent else palette.text,
+          modifier = Modifier.size(20.dp),
+        )
+      }
+    }
+    Text(
+      text = label,
+      style = MaterialTheme.typography.labelSmall,
+      color = if (active) palette.accent else palette.secondaryText,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+    )
   }
 }
 
@@ -381,28 +708,34 @@ fun TypographySettingsSheet(
   onChangeReadingRulerDimAlpha: (Float) -> Unit = {},
   onApplyComfortPreset: (ComfortPreset) -> Unit,
   onResetComfort: () -> Unit,
+  onOpenThemeHub: () -> Unit = {},
   onOpenSettings: () -> Unit,
   onDismiss: () -> Unit,
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val strings = LocalAppStrings.current
   val isFa = settings.appLanguage == AppLanguage.PERSIAN
+  val cardSurface = if (palette.isDark) palette.controlSurface.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.80f)
+  val tileSurface = palette.controlSurface.copy(alpha = if (palette.isDark) 0.85f else 0.72f)
+
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
     containerColor = palette.dockSurface,
     contentColor = palette.text,
+    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
   ) {
     Column(
       modifier =
         Modifier
           .fillMaxWidth()
-          .heightIn(max = 600.dp)
+          .heightIn(max = 640.dp)
           .verticalScroll(rememberScrollState())
           .padding(horizontal = 20.dp)
           .padding(bottom = 28.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+      // Studio Header
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -411,164 +744,134 @@ fun TypographySettingsSheet(
         Text(
           text = if (bookFormat.isReflowableText) strings.typographyAndLayout else strings.pageDisplay,
           style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.Bold,
           color = palette.text,
         )
         Surface(
-          shape = RoundedCornerShape(10.dp),
-          color = palette.controlSurface.copy(alpha = 0.72f),
+          shape = CircleShape,
+          color = tileSurface,
           border = BorderStroke(1.dp, palette.dockBorder),
           modifier =
             Modifier
-              .clip(RoundedCornerShape(10.dp))
+              .clip(CircleShape)
               .clickable(onClick = onResetComfort)
               .testTag("sheet_reset_comfort"),
         ) {
           Text(
             text = strings.resetDefaults,
             style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
             color = palette.accent,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
           )
         }
       }
 
-      // Quick Comfort Presets inside TT sheet
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-          text = strings.comfortPresets,
-          style = MaterialTheme.typography.labelLarge,
-          color = palette.secondaryText,
-        )
-        Row(
-          modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          ComfortPreset.entries.forEach { preset ->
-            Surface(
-              shape = CircleShape,
-              color = palette.controlSurface.copy(alpha = 0.72f),
-              border = BorderStroke(1.dp, palette.dockBorder),
-              modifier =
-                Modifier
-                  .clip(CircleShape)
-                  .clickable { onApplyComfortPreset(preset) }
-                  .testTag("sheet_preset_${preset.name.lowercase()}"),
-            ) {
+      // 1. Live Typography Preview Card + "Text & Background" Shortcut (Vision-inspired)
+      Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = cardSurface,
+        border = BorderStroke(1.dp, palette.dockBorder),
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+          // Live Preview Window styled with current reading theme & typography
+          Box(
+            modifier =
+              Modifier
+                .fillMaxWidth()
+                .background(palette.background)
+                .then(
+                  if (settings.eyeComfortWarmth > 0.01f) {
+                    Modifier.background(Color(0xFFFFA726).copy(alpha = settings.eyeComfortWarmth * 0.16f))
+                  } else {
+                    Modifier
+                  }
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+          ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
               Text(
-                text = if (isFa) preset.faLabel else preset.label,
-                style = MaterialTheme.typography.labelMedium,
+                text = strings.previewLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = palette.secondaryText,
+              )
+              val previewWeight =
+                when (settings.fontWeightValue) {
+                  500 -> FontWeight.Medium
+                  600 -> FontWeight.SemiBold
+                  else -> FontWeight.Normal
+                }
+              Text(
+                text = strings.typographyPreviewSample,
+                fontFamily = settings.fontOption.toComposeFontFamily(),
+                fontSize = settings.fontSizeSp.coerceIn(13, 24).sp,
+                lineHeight = (settings.fontSizeSp.coerceIn(13, 24) * settings.lineHeightMultiplier).sp,
+                letterSpacing = (settings.letterSpacingEm * 12f).sp,
+                fontWeight = previewWeight,
+                textAlign =
+                  if (settings.textAlign == TextAlignOption.JUSTIFY) TextAlign.Justify
+                  else TextAlign.Start,
                 color = palette.text,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
               )
             }
           }
-        }
-      }
 
-      // Page Flow selector (Book Pages 1-by-1 vs Continuous Vertical Scroll)
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-          text = strings.readingModeSection,
-          style = MaterialTheme.typography.labelLarge,
-          color = palette.secondaryText,
-        )
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-          ReadingLayoutMode.entries.forEach { layoutMode ->
-            val selected = settings.readingLayoutMode == layoutMode
-            Surface(
-              shape = RoundedCornerShape(14.dp),
-              color =
-                if (selected) palette.accent.copy(alpha = 0.16f)
-                else palette.controlSurface.copy(alpha = 0.72f),
-              border =
-                BorderStroke(
-                  width = 1.dp,
-                  color = if (selected) palette.accent else palette.dockBorder,
-                ),
+          HorizontalDivider(thickness = 0.8.dp, color = palette.divider)
+
+          // Text & Background quick jump row -> Theme Control Center
+          Row(
+            modifier =
+              Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenThemeHub)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .testTag("typo_jump_theme_hub"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+          ) {
+            Box(
               modifier =
                 Modifier
-                  .weight(1f)
-                  .clip(RoundedCornerShape(14.dp))
-                  .clickable { onSelectLayoutMode(layoutMode) }
-                  .testTag("reader_layout_${layoutMode.name.lowercase()}"),
+                  .size(34.dp)
+                  .clip(CircleShape)
+                  .background(palette.accent.copy(alpha = 0.14f)),
+              contentAlignment = Alignment.Center,
             ) {
-              Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-              ) {
-                Icon(
-                  imageVector =
-                    if (layoutMode == ReadingLayoutMode.PAGED) Icons.AutoMirrored.Rounded.MenuBook
-                    else Icons.Rounded.SwapVert,
-                  contentDescription = null,
-                  tint = if (selected) palette.accent else palette.text,
-                  modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = if (isFa) layoutMode.faLabel else layoutMode.label,
-                  style = MaterialTheme.typography.labelMedium,
-                  fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                  color = if (selected) palette.accent else palette.text,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-              }
+              Icon(
+                imageVector = Icons.Rounded.Palette,
+                contentDescription = null,
+                tint = palette.accent,
+                modifier = Modifier.size(18.dp),
+              )
             }
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text = strings.textAndBackgroundTitle,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = palette.text,
+              )
+              Text(
+                text = strings.textAndBackgroundSub,
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.secondaryText,
+              )
+            }
+            Icon(
+              imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+              contentDescription = null,
+              tint = palette.secondaryText,
+              modifier = Modifier.size(20.dp),
+            )
           }
         }
       }
 
-      if (!bookFormat.isReflowableText) {
-        Text(
-          text = "Pinch with two fingers or double-tap any page to zoom in and pan smoothly.",
-          style = MaterialTheme.typography.bodyMedium,
-          color = palette.secondaryText,
-        )
-        LabeledSliderRow(
-          label = strings.margins,
-          valueLabel = "${settings.horizontalMarginDp} dp",
-          value = settings.horizontalMarginDp.toFloat(),
-          valueRange = 8f..56f,
-          palette = palette,
-          testTag = "margin_slider",
-          onValueChange = { onChangeMargin(it.roundToInt()) },
-        )
-        LabeledSliderRow(
-          label = strings.verticalMargins,
-          valueLabel = "${settings.verticalMarginDp} dp",
-          value = settings.verticalMarginDp.toFloat(),
-          valueRange = 8f..60f,
-          palette = palette,
-          testTag = "vertical_margin_slider",
-          onValueChange = { onChangeVerticalMargin(it.roundToInt()) },
-        )
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-          Text(
-            text = strings.adaptPdfColors,
-            style = MaterialTheme.typography.titleSmall,
-            color = palette.text,
-          )
-          Switch(
-            checked = settings.pdfThemeFilterEnabled,
-            onCheckedChange = onTogglePdfThemeFilter,
-            colors =
-              SwitchDefaults.colors(
-                checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-                checkedTrackColor = palette.accent,
-              ),
-          )
-        }
-      } else {
-        // Font Family chips (built-in + custom imported)
+      // 2. Select Font — Horizontal Visual "Aa" Cards (Vision-inspired)
+      if (bookFormat.isReflowableText) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
           Row(
             modifier = Modifier.fillMaxWidth(),
@@ -576,13 +879,15 @@ fun TypographySettingsSheet(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Text(
-              text = strings.typeface,
+              text = strings.selectFontLabel,
               style = MaterialTheme.typography.labelLarge,
+              fontWeight = FontWeight.SemiBold,
               color = palette.secondaryText,
             )
             Text(
               text = strings.manageFontsTts,
               style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.SemiBold,
               color = palette.accent,
               modifier =
                 Modifier
@@ -597,219 +902,81 @@ fun TypographySettingsSheet(
           }
           Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
           ) {
             ReaderFontOption.entries.forEach { option ->
               val selected = settings.customFontId == null && settings.fontOption == option
               Surface(
-                shape = RoundedCornerShape(14.dp),
-                color =
-                  if (selected) palette.accent.copy(alpha = 0.16f)
-                  else palette.controlSurface.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(18.dp),
+                color = if (selected) cardSurface else tileSurface,
                 border =
                   BorderStroke(
-                    width = 1.dp,
+                    width = if (selected) 2.dp else 1.dp,
                     color = if (selected) palette.accent else palette.dockBorder,
                   ),
                 modifier =
                   Modifier
-                    .clip(RoundedCornerShape(14.dp))
+                    .width(92.dp)
+                    .clip(RoundedCornerShape(18.dp))
                     .clickable { onSelectFont(option) }
                     .testTag("font_option_${option.name.lowercase()}"),
               ) {
-                Text(
-                  text = option.displayName,
-                  fontFamily = option.toComposeFontFamily(),
-                  fontSize = 14.sp,
-                  fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                  color = if (selected) palette.accent else palette.text,
-                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                )
+                Column(
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                  Text(
+                    text = if (option.supportsPersian) "اب" else "Aa",
+                    fontFamily = option.toComposeFontFamily(),
+                    fontSize = 22.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selected) palette.accent else palette.text,
+                  )
+                  Text(
+                    text = option.displayName.substringBefore(" ("),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) palette.accent else palette.secondaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
               }
             }
             customFonts.forEach { cf ->
               val selected = settings.customFontId == cf.id
               Surface(
-                shape = RoundedCornerShape(14.dp),
-                color =
-                  if (selected) palette.accent.copy(alpha = 0.16f)
-                  else palette.controlSurface.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(18.dp),
+                color = if (selected) cardSurface else tileSurface,
                 border =
                   BorderStroke(
-                    width = 1.dp,
+                    width = if (selected) 2.dp else 1.dp,
                     color = if (selected) palette.accent else palette.dockBorder,
                   ),
                 modifier =
                   Modifier
-                    .clip(RoundedCornerShape(14.dp))
+                    .width(92.dp)
+                    .clip(RoundedCornerShape(18.dp))
                     .clickable { onSelectCustomFont(cf.id) }
                     .testTag("custom_font_${cf.id}"),
               ) {
-                Text(
-                  text = cf.displayName,
-                  fontSize = 14.sp,
-                  fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                  color = if (selected) palette.accent else palette.text,
-                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                )
-              }
-            }
-          }
-        }
-
-        // Font Size
-        LabeledSliderRow(
-          label = strings.textSize,
-          valueLabel = "${settings.fontSizeSp} sp",
-          value = settings.fontSizeSp.toFloat(),
-          valueRange = 12f..32f,
-          palette = palette,
-          testTag = "font_size_slider",
-          onValueChange = { onChangeFontSize(it.roundToInt()) },
-        )
-
-        // Line Height
-        LabeledSliderRow(
-          label = strings.lineSpacing,
-          valueLabel = String.format("%.2f×", settings.lineHeightMultiplier),
-          value = settings.lineHeightMultiplier,
-          valueRange = 1.15f..2.4f,
-          palette = palette,
-          testTag = "line_height_slider",
-          onValueChange = onChangeLineHeight,
-        )
-
-        // Side Margin Borders
-        LabeledSliderRow(
-          label = strings.margins,
-          valueLabel = "${settings.horizontalMarginDp} dp",
-          value = settings.horizontalMarginDp.toFloat(),
-          valueRange = 8f..56f,
-          palette = palette,
-          testTag = "margin_slider",
-          onValueChange = { onChangeMargin(it.roundToInt()) },
-        )
-
-        // Top & Bottom Margin Borders
-        LabeledSliderRow(
-          label = strings.verticalMargins,
-          valueLabel = "${settings.verticalMarginDp} dp",
-          value = settings.verticalMarginDp.toFloat(),
-          valueRange = 8f..60f,
-          palette = palette,
-          testTag = "vertical_margin_slider",
-          onValueChange = { onChangeVerticalMargin(it.roundToInt()) },
-        )
-
-        // Paragraph Spacing
-        LabeledSliderRow(
-          label = strings.paragraphSpacing,
-          valueLabel = String.format("%.2f em", settings.paragraphSpacingEm),
-          value = settings.paragraphSpacingEm,
-          valueRange = 0.4f..2.0f,
-          palette = palette,
-          testTag = "paragraph_spacing_slider",
-          onValueChange = onChangeParagraphSpacing,
-        )
-
-        // Letter Spacing
-        LabeledSliderRow(
-          label = strings.letterSpacing,
-          valueLabel = String.format("%+.2f em", settings.letterSpacingEm),
-          value = settings.letterSpacingEm,
-          valueRange = -0.02f..0.12f,
-          palette = palette,
-          testTag = "letter_spacing_slider",
-          onValueChange = onChangeLetterSpacing,
-        )
-
-        // Text Weight
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-            text = strings.fontWeightLabel,
-            style = MaterialTheme.typography.labelLarge,
-            color = palette.secondaryText,
-          )
-          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-              400 to strings.weightRegular,
-              500 to strings.weightMedium,
-              600 to strings.weightBold,
-            ).forEach { (weight, lbl) ->
-              val selected = settings.fontWeightValue == weight
-              Surface(
-                shape = RoundedCornerShape(12.dp),
-                color =
-                  if (selected) palette.accent.copy(alpha = 0.16f)
-                  else palette.controlSurface.copy(alpha = 0.7f),
-                border =
-                  BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
-                modifier =
-                  Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onChangeFontWeight(weight) }
-                    .testTag("weight_$weight"),
-              ) {
-                Text(
-                  text = lbl,
-                  style = MaterialTheme.typography.labelMedium,
-                  color = if (selected) palette.accent else palette.text,
-                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-              }
-            }
-          }
-        }
-
-        // Alignment
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-            text = strings.alignment,
-            style = MaterialTheme.typography.labelLarge,
-            color = palette.secondaryText,
-          )
-          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextAlignOption.entries.forEach { align ->
-              val selected = settings.textAlign == align
-              val alignLabel = if (isFa) align.faLabel else align.label
-              Surface(
-                shape = RoundedCornerShape(12.dp),
-                color =
-                  if (selected) palette.accent.copy(alpha = 0.16f)
-                  else palette.controlSurface.copy(alpha = 0.7f),
-                border =
-                  BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
-                modifier =
-                  Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onSelectAlign(align) }
-                    .testTag("align_${align.name.lowercase()}"),
-              ) {
-                Row(
-                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Column(
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                  Icon(
-                    imageVector =
-                      if (align == TextAlignOption.LEFT) Icons.AutoMirrored.Rounded.FormatAlignLeft
-                      else Icons.Rounded.FormatAlignJustify,
-                    contentDescription = alignLabel,
-                    tint = if (selected) palette.accent else palette.text,
-                    modifier = Modifier.size(16.dp),
+                  Text(
+                    text = "Aa",
+                    fontSize = 22.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selected) palette.accent else palette.text,
                   )
                   Text(
-                    text = alignLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) palette.accent else palette.text,
+                    text = cf.displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) palette.accent else palette.secondaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                   )
                 }
               }
@@ -818,340 +985,588 @@ fun TypographySettingsSheet(
         }
       }
 
-      HorizontalDivider(color = palette.divider)
-
-      // Eye-Comfort Warmth
-      LabeledSliderRow(
-        label = strings.eyeComfortWarmth,
-        valueLabel = "${(settings.eyeComfortWarmth * 100f).roundToInt()}%",
-        value = settings.eyeComfortWarmth,
-        valueRange = 0f..1f,
-        palette = palette,
-        testTag = "eye_warmth_slider",
-        onValueChange = onChangeEyeComfortWarmth,
-      )
-
-      // Page Frame Border toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
+      // 3. Comfort Presets & Page Flow Segmented Control
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-          text = strings.pageBorderToggle,
-          style = MaterialTheme.typography.titleSmall,
-          color = palette.text,
+          text = strings.comfortPresets,
+          style = MaterialTheme.typography.labelLarge,
+          fontWeight = FontWeight.SemiBold,
+          color = palette.secondaryText,
         )
-        Switch(
+        Row(
+          modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          ComfortPreset.entries.forEach { preset ->
+            Surface(
+              shape = CircleShape,
+              color = tileSurface,
+              border = BorderStroke(1.dp, palette.dockBorder),
+              modifier =
+                Modifier
+                  .clip(CircleShape)
+                  .clickable { onApplyComfortPreset(preset) }
+                  .testTag("sheet_preset_${preset.name.lowercase()}"),
+            ) {
+              Text(
+                text = if (isFa) preset.faLabel else preset.label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = palette.text,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+              )
+            }
+          }
+        }
+
+        AtlasSegmentedControl(
+          options = ReadingLayoutMode.entries.map { if (isFa) it.faLabel else it.label },
+          selectedIndex = ReadingLayoutMode.entries.indexOf(settings.readingLayoutMode).coerceAtLeast(0),
+          onSelect = { idx -> onSelectLayoutMode(ReadingLayoutMode.entries[idx]) },
+          trackColor = tileSurface,
+          activeSurfaceColor = cardSurface,
+          activeTextColor = palette.accent,
+          inactiveTextColor = palette.secondaryText,
+          borderColor = palette.dockBorder,
+        )
+      }
+
+      // 4. Grouped Typography Controls Card
+      if (!bookFormat.isReflowableText) {
+        AtlasGroupedCard(
+          containerColor = cardSurface,
+          borderColor = palette.dockBorder,
+          contentPadding = 14.dp,
+        ) {
+          Text(
+            text =
+              if (isFa) "برای بزرگ‌نمایی روان صفحات، با دو انگشت زوم کنید یا دو بار ضربه بزنید."
+              else "Pinch with two fingers or double-tap any page to zoom in and pan smoothly.",
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.secondaryText,
+          )
+          AtlasSliderRow(
+            label = strings.margins,
+            valueText = "${settings.horizontalMarginDp} dp",
+            value = settings.horizontalMarginDp.toFloat(),
+            valueRange = 8f..56f,
+            onValueChange = { onChangeMargin(it.roundToInt()) },
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
+          )
+          AtlasSliderRow(
+            label = strings.verticalMargins,
+            valueText = "${settings.verticalMarginDp} dp",
+            value = settings.verticalMarginDp.toFloat(),
+            valueRange = 8f..60f,
+            onValueChange = { onChangeVerticalMargin(it.roundToInt()) },
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
+          )
+          AtlasHairlineDivider(color = palette.divider)
+          AtlasToggleRow(
+            title = strings.adaptPdfColors,
+            checked = settings.pdfThemeFilterEnabled,
+            onCheckedChange = onTogglePdfThemeFilter,
+            activeColor = palette.accent,
+            textColor = palette.text,
+            secondaryColor = palette.secondaryText,
+            inactiveTrackColor = palette.controlSurface,
+          )
+        }
+      } else {
+        AtlasGroupedCard(
+          containerColor = cardSurface,
+          borderColor = palette.dockBorder,
+          contentPadding = 14.dp,
+        ) {
+          // Tt Font Size with quick - / + stepper + slider
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Text(
+                text = "Tt",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = palette.accent,
+              )
+              Text(
+                text = strings.textSize,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = palette.text,
+              )
+            }
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              Surface(
+                shape = CircleShape,
+                color = tileSurface,
+                border = BorderStroke(1.dp, palette.dockBorder),
+                modifier =
+                  Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .clickable { onChangeFontSize((settings.fontSizeSp - 1).coerceAtLeast(12)) },
+              ) {
+                Box(contentAlignment = Alignment.Center) {
+                  Icon(Icons.Rounded.Remove, contentDescription = "Decrease font size", tint = palette.text, modifier = Modifier.size(16.dp))
+                }
+              }
+              Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = palette.accent.copy(alpha = 0.14f),
+              ) {
+                Text(
+                  text = "${settings.fontSizeSp}",
+                  style = MaterialTheme.typography.labelLarge,
+                  fontWeight = FontWeight.Bold,
+                  color = palette.accent,
+                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                )
+              }
+              Surface(
+                shape = CircleShape,
+                color = tileSurface,
+                border = BorderStroke(1.dp, palette.dockBorder),
+                modifier =
+                  Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .clickable { onChangeFontSize((settings.fontSizeSp + 1).coerceAtMost(32)) },
+              ) {
+                Box(contentAlignment = Alignment.Center) {
+                  Icon(Icons.Rounded.Add, contentDescription = "Increase font size", tint = palette.text, modifier = Modifier.size(16.dp))
+                }
+              }
+            }
+          }
+          Slider(
+            value = settings.fontSizeSp.toFloat(),
+            onValueChange = { onChangeFontSize(it.roundToInt()) },
+            valueRange = 12f..32f,
+            colors =
+              SliderDefaults.colors(
+                thumbColor = palette.accent,
+                activeTrackColor = palette.accent,
+                inactiveTrackColor = palette.controlSurface,
+              ),
+            modifier = Modifier.fillMaxWidth().testTag("font_size_slider"),
+          )
+
+          AtlasHairlineDivider(color = palette.divider)
+
+          // A Font Weight row
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Text(
+                text = "A",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = palette.accent,
+              )
+              Text(
+                text = strings.fontWeightLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = palette.text,
+              )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+              listOf(
+                400 to strings.weightRegular,
+                500 to strings.weightMedium,
+                600 to strings.weightBold,
+              ).forEach { (weight, lbl) ->
+                val selected = settings.fontWeightValue == weight
+                Surface(
+                  shape = RoundedCornerShape(11.dp),
+                  color = if (selected) palette.accent.copy(alpha = 0.16f) else tileSurface,
+                  border = BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
+                  modifier =
+                    Modifier
+                      .clip(RoundedCornerShape(11.dp))
+                      .clickable { onChangeFontWeight(weight) }
+                      .testTag("weight_$weight"),
+                ) {
+                  Text(
+                    text = lbl,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selected) palette.accent else palette.text,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                  )
+                }
+              }
+            }
+          }
+
+          AtlasHairlineDivider(color = palette.divider)
+
+          AtlasSliderRow(
+            label = strings.lineSpacing,
+            valueText = String.format("%.2f×", settings.lineHeightMultiplier),
+            value = settings.lineHeightMultiplier,
+            valueRange = 1.15f..2.4f,
+            onValueChange = onChangeLineHeight,
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
+          )
+          AtlasSliderRow(
+            label = strings.margins,
+            valueText = "${settings.horizontalMarginDp} dp",
+            value = settings.horizontalMarginDp.toFloat(),
+            valueRange = 8f..56f,
+            onValueChange = { onChangeMargin(it.roundToInt()) },
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
+          )
+          AtlasSliderRow(
+            label = strings.verticalMargins,
+            valueText = "${settings.verticalMarginDp} dp",
+            value = settings.verticalMarginDp.toFloat(),
+            valueRange = 8f..60f,
+            onValueChange = { onChangeVerticalMargin(it.roundToInt()) },
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
+          )
+          AtlasSliderRow(
+            label = strings.paragraphSpacing,
+            valueText = String.format("%.2f em", settings.paragraphSpacingEm),
+            value = settings.paragraphSpacingEm,
+            valueRange = 0.4f..2.0f,
+            onValueChange = onChangeParagraphSpacing,
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
+          )
+          AtlasSliderRow(
+            label = strings.letterSpacing,
+            valueText = String.format("%+.2f em", settings.letterSpacingEm),
+            value = settings.letterSpacingEm,
+            valueRange = -0.02f..0.12f,
+            onValueChange = onChangeLetterSpacing,
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
+          )
+        }
+
+        // 5. Visual 2-Column Text Alignment Cards (Vision-inspired with custom AtlasRadioDot)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          Text(
+            text = strings.alignment,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = palette.secondaryText,
+          )
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            TextAlignOption.entries.forEach { align ->
+              val selected = settings.textAlign == align
+              val alignLabel = if (isFa) align.faLabel else align.label
+              val alignDesc =
+                if (align == TextAlignOption.LEFT) strings.alignDefaultDesc else strings.alignJustifyDesc
+              Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (selected) cardSurface else tileSurface,
+                border =
+                  BorderStroke(
+                    width = if (selected) 2.dp else 1.dp,
+                    color = if (selected) palette.accent else palette.dockBorder,
+                  ),
+                modifier =
+                  Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { onSelectAlign(align) }
+                    .testTag("align_${align.name.lowercase()}"),
+              ) {
+                Column(
+                  modifier = Modifier.padding(14.dp),
+                  verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                      text = alignLabel,
+                      style = MaterialTheme.typography.titleSmall,
+                      fontWeight = FontWeight.Bold,
+                      color = if (selected) palette.accent else palette.text,
+                    )
+                    Icon(
+                      imageVector =
+                        if (align == TextAlignOption.LEFT) Icons.AutoMirrored.Rounded.FormatAlignLeft
+                        else Icons.Rounded.FormatAlignJustify,
+                      contentDescription = alignLabel,
+                      tint = if (selected) palette.accent else palette.secondaryText,
+                      modifier = Modifier.size(18.dp),
+                    )
+                  }
+                  Text(
+                    text = alignDesc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.secondaryText,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                  ) {
+                    AtlasRadioDot(
+                      selected = selected,
+                      activeColor = palette.accent,
+                      inactiveBorderColor = palette.secondaryText.copy(alpha = 0.4f),
+                    )
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 6. Reading Comfort & Eye Warmth Grouped Card
+      AtlasGroupedCard(
+        containerColor = cardSurface,
+        borderColor = palette.dockBorder,
+        contentPadding = 14.dp,
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Icon(Icons.Rounded.Tune, contentDescription = null, tint = palette.accent, modifier = Modifier.size(18.dp))
+          Text(
+            text = strings.readingComfort,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = palette.text,
+          )
+        }
+        AtlasSliderRow(
+          label = strings.eyeComfortWarmth,
+          valueText = "${(settings.eyeComfortWarmth * 100f).roundToInt()}%",
+          value = settings.eyeComfortWarmth,
+          valueRange = 0f..1f,
+          onValueChange = onChangeEyeComfortWarmth,
+          accentColor = palette.accent,
+          textColor = palette.text,
+          trackColor = palette.controlSurface,
+        )
+        AtlasHairlineDivider(color = palette.divider)
+        AtlasToggleRow(
+          title = strings.pageBorderToggle,
           checked = settings.showPageBorder,
           onCheckedChange = onTogglePageBorder,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
         )
-      }
-
-      // Paper Texture toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-          Text(
-            text = strings.paperStyleToggle,
-            style = MaterialTheme.typography.titleSmall,
-            color = palette.text,
-          )
-          Text(
-            text = strings.paperStyleSub,
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.secondaryText,
-          )
-        }
-        Switch(
+        AtlasHairlineDivider(color = palette.divider)
+        AtlasToggleRow(
+          title = strings.paperStyleToggle,
+          subtitle = strings.paperStyleSub,
           checked = settings.paperTextureEnabled,
           onCheckedChange = onTogglePaperTexture,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
           modifier = Modifier.testTag("sheet_paper_texture_switch"),
         )
-      }
-
-      // Keep Screen Awake toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Text(
-          text = strings.keepScreenAwake,
-          style = MaterialTheme.typography.titleSmall,
-          color = palette.text,
-        )
-        Switch(
+        AtlasHairlineDivider(color = palette.divider)
+        AtlasToggleRow(
+          title = strings.keepScreenAwake,
           checked = settings.keepScreenOn,
           onCheckedChange = onToggleKeepScreenOn,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
         )
-      }
-
-      // Volume Key Page Turn toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-          Text(
-            text = strings.volumeKeyPageTurnToggle,
-            style = MaterialTheme.typography.titleSmall,
-            color = palette.text,
-          )
-          Text(
-            text = strings.volumeKeyPageTurnSub,
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.secondaryText,
-          )
-        }
-        Switch(
+        AtlasHairlineDivider(color = palette.divider)
+        AtlasToggleRow(
+          title = strings.volumeKeyPageTurnToggle,
+          subtitle = strings.volumeKeyPageTurnSub,
           checked = settings.volumeKeyPageTurnEnabled,
           onCheckedChange = onToggleVolumeKeyPageTurn,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
           modifier = Modifier.testTag("sheet_volume_key_switch"),
         )
-      }
-
-      // Battery-Saver Mode toggle
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-          Text(
-            text = strings.batterySaverToggle,
-            style = MaterialTheme.typography.titleSmall,
-            color = palette.text,
-          )
-          Text(
-            text = strings.batterySaverSub,
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.secondaryText,
-          )
-        }
-        Switch(
+        AtlasHairlineDivider(color = palette.divider)
+        AtlasToggleRow(
+          title = strings.batterySaverToggle,
+          subtitle = strings.batterySaverSub,
           checked = settings.batterySaverModeEnabled,
           onCheckedChange = onToggleBatterySaver,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
           modifier = Modifier.testTag("sheet_battery_saver_switch"),
         )
       }
 
-      HorizontalDivider(color = palette.divider)
-
-      // Tap Zones & Gestures Customization
-      Text(
-        text = strings.tapZonesSection,
-        style = MaterialTheme.typography.titleSmall,
-        color = palette.text,
-      )
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      // 7. Tap Zones & Gestures Grouped Card
+      AtlasGroupedCard(
+        containerColor = cardSurface,
+        borderColor = palette.dockBorder,
+        contentPadding = 14.dp,
       ) {
-        TapZoneDropdownTile(
-          zoneLabel = strings.leftTapZoneLabel,
-          selectedAction = settings.leftTapAction,
-          isFa = isFa,
-          palette = palette,
-          onSelect = onSelectLeftTapAction,
-          modifier = Modifier.weight(1f).testTag("tap_zone_left_selector"),
-        )
-        TapZoneDropdownTile(
-          zoneLabel = strings.centerTapZoneLabel,
-          selectedAction = settings.centerTapAction,
-          isFa = isFa,
-          palette = palette,
-          onSelect = onSelectCenterTapAction,
-          modifier = Modifier.weight(1f).testTag("tap_zone_center_selector"),
-        )
-        TapZoneDropdownTile(
-          zoneLabel = strings.rightTapZoneLabel,
-          selectedAction = settings.rightTapAction,
-          isFa = isFa,
-          palette = palette,
-          onSelect = onSelectRightTapAction,
-          modifier = Modifier.weight(1f).testTag("tap_zone_right_selector"),
-        )
-      }
-
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Icon(Icons.Rounded.TouchApp, contentDescription = null, tint = palette.accent, modifier = Modifier.size(18.dp))
           Text(
-            text = strings.edgeBrightnessSwipeToggle,
+            text = strings.tapZonesSection,
             style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
             color = palette.text,
           )
-          Text(
-            text = strings.edgeBrightnessSwipeSub,
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.secondaryText,
-          )
         }
-        Switch(
-          checked = settings.edgeBrightnessSwipeEnabled,
-          onCheckedChange = onToggleEdgeBrightnessSwipe,
-          colors =
-            SwitchDefaults.colors(
-              checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-              checkedTrackColor = palette.accent,
-            ),
-          modifier = Modifier.testTag("sheet_edge_brightness_switch"),
-        )
-      }
-
-      if (bookFormat.isReflowableText) {
         Row(
           modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(
-              text = strings.doubleTapBookmarkToggle,
-              style = MaterialTheme.typography.titleSmall,
-              color = palette.text,
-            )
-            Text(
-              text = strings.doubleTapBookmarkSub,
-              style = MaterialTheme.typography.bodySmall,
-              color = palette.secondaryText,
-            )
-          }
-          Switch(
+          TapZoneDropdownTile(
+            zoneLabel = strings.leftTapZoneLabel,
+            selectedAction = settings.leftTapAction,
+            isFa = isFa,
+            palette = palette,
+            onSelect = onSelectLeftTapAction,
+            modifier = Modifier.weight(1f).testTag("tap_zone_left_selector"),
+          )
+          TapZoneDropdownTile(
+            zoneLabel = strings.centerTapZoneLabel,
+            selectedAction = settings.centerTapAction,
+            isFa = isFa,
+            palette = palette,
+            onSelect = onSelectCenterTapAction,
+            modifier = Modifier.weight(1f).testTag("tap_zone_center_selector"),
+          )
+          TapZoneDropdownTile(
+            zoneLabel = strings.rightTapZoneLabel,
+            selectedAction = settings.rightTapAction,
+            isFa = isFa,
+            palette = palette,
+            onSelect = onSelectRightTapAction,
+            modifier = Modifier.weight(1f).testTag("tap_zone_right_selector"),
+          )
+        }
+        AtlasHairlineDivider(color = palette.divider)
+        AtlasToggleRow(
+          title = strings.edgeBrightnessSwipeToggle,
+          subtitle = strings.edgeBrightnessSwipeSub,
+          checked = settings.edgeBrightnessSwipeEnabled,
+          onCheckedChange = onToggleEdgeBrightnessSwipe,
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
+          modifier = Modifier.testTag("sheet_edge_brightness_switch"),
+        )
+        if (bookFormat.isReflowableText) {
+          AtlasHairlineDivider(color = palette.divider)
+          AtlasToggleRow(
+            title = strings.doubleTapBookmarkToggle,
+            subtitle = strings.doubleTapBookmarkSub,
             checked = settings.doubleTapBookmarkEnabled,
             onCheckedChange = onToggleDoubleTapBookmark,
-            colors =
-              SwitchDefaults.colors(
-                checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-                checkedTrackColor = palette.accent,
-              ),
+            activeColor = palette.accent,
+            textColor = palette.text,
+            secondaryColor = palette.secondaryText,
+            inactiveTrackColor = palette.controlSurface,
             modifier = Modifier.testTag("sheet_double_tap_bookmark_switch"),
           )
         }
       }
 
-      HorizontalDivider(color = palette.divider)
-
-      // Reading Ruler / Line Guide Overlay
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-          Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(
-              text = strings.readingRulerSection,
-              style = MaterialTheme.typography.titleSmall,
-              color = palette.text,
-            )
-            Text(
-              text = strings.readingRulerSub,
-              style = MaterialTheme.typography.bodySmall,
-              color = palette.secondaryText,
-            )
-          }
-          Switch(
-            checked = settings.readingRulerEnabled,
-            onCheckedChange = onToggleReadingRuler,
-            colors =
-              SwitchDefaults.colors(
-                checkedThumbColor = if (palette.isDark) Color(0xFF082115) else Color.White,
-                checkedTrackColor = palette.accent,
-              ),
-            modifier = Modifier.testTag("sheet_reading_ruler_switch"),
-          )
-        }
-
+      // 8. Reading Ruler / Line Guide Grouped Card
+      AtlasGroupedCard(
+        containerColor = cardSurface,
+        borderColor = palette.dockBorder,
+        contentPadding = 14.dp,
+      ) {
+        AtlasToggleRow(
+          title = strings.readingRulerSection,
+          subtitle = strings.readingRulerSub,
+          checked = settings.readingRulerEnabled,
+          onCheckedChange = onToggleReadingRuler,
+          icon = Icons.Rounded.HorizontalRule,
+          activeColor = palette.accent,
+          textColor = palette.text,
+          secondaryColor = palette.secondaryText,
+          inactiveTrackColor = palette.controlSurface,
+          modifier = Modifier.testTag("sheet_reading_ruler_switch"),
+        )
         if (settings.readingRulerEnabled) {
+          AtlasHairlineDivider(color = palette.divider)
           Text(
             text = strings.readingRulerStyleLabel,
             style = MaterialTheme.typography.labelLarge,
             color = palette.secondaryText,
           )
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
-            ReadingRulerStyle.entries.forEach { style ->
-              val selected = settings.readingRulerStyle == style
-              Surface(
-                shape = RoundedCornerShape(12.dp),
-                color =
-                  if (selected) palette.accent.copy(alpha = 0.16f)
-                  else palette.controlSurface.copy(alpha = 0.7f),
-                border = BorderStroke(1.dp, if (selected) palette.accent else palette.dockBorder),
-                modifier =
-                  Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onSelectReadingRulerStyle(style) }
-                    .testTag("ruler_style_${style.name.lowercase()}"),
-              ) {
-                Text(
-                  text = if (isFa) style.faLabel else style.label,
-                  style = MaterialTheme.typography.labelSmall,
-                  fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                  color = if (selected) palette.accent else palette.text,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 9.dp),
-                )
-              }
-            }
-          }
-
-          LabeledSliderRow(
+          AtlasSegmentedControl(
+            options = ReadingRulerStyle.entries.map { if (isFa) it.faLabel else it.label },
+            selectedIndex = ReadingRulerStyle.entries.indexOf(settings.readingRulerStyle).coerceAtLeast(0),
+            onSelect = { idx -> onSelectReadingRulerStyle(ReadingRulerStyle.entries[idx]) },
+            trackColor = tileSurface,
+            activeSurfaceColor = cardSurface,
+            activeTextColor = palette.accent,
+            inactiveTextColor = palette.secondaryText,
+            borderColor = palette.dockBorder,
+          )
+          AtlasSliderRow(
             label = strings.readingRulerHeightLabel,
-            valueLabel = "${settings.readingRulerHeightDp} dp",
+            valueText = "${settings.readingRulerHeightDp} dp",
             value = settings.readingRulerHeightDp.toFloat(),
             valueRange = 32f..140f,
-            palette = palette,
-            testTag = "reading_ruler_height_slider",
             onValueChange = { onChangeReadingRulerHeight(it.roundToInt()) },
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
           )
-
-          LabeledSliderRow(
+          AtlasSliderRow(
             label = strings.readingRulerOpacityLabel,
-            valueLabel = "${(settings.readingRulerDimAlpha * 100f).roundToInt()}%",
+            valueText = "${(settings.readingRulerDimAlpha * 100f).roundToInt()}%",
             value = settings.readingRulerDimAlpha,
             valueRange = 0.15f..0.75f,
-            palette = palette,
-            testTag = "reading_ruler_opacity_slider",
             onValueChange = onChangeReadingRulerDimAlpha,
+            accentColor = palette.accent,
+            textColor = palette.text,
+            trackColor = palette.controlSurface,
           )
         }
       }
@@ -1934,7 +2349,7 @@ fun FocusAudioSheet(
                 colors =
                   ButtonDefaults.buttonColors(
                     containerColor = palette.accent,
-                    contentColor = if (palette.isDark) Color(0xFF082115) else Color.White,
+                    contentColor = if (palette.isDark) AtlasOnAccentDark else Color.White,
                   ),
                 modifier = Modifier.testTag("focus_timer_toggle_button"),
               ) {

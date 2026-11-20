@@ -141,7 +141,7 @@ class OpdsCatalogRepository(
           readTimeout = 20_000
           instanceFollowRedirects = false
           requestMethod = "GET"
-          setRequestProperty("User-Agent", "PageNest/3.2.0 (Android Ebook Reader)")
+          setRequestProperty("User-Agent", "ATLAS/3.3 (Android Ebook Reader)")
           setRequestProperty("Accept", "application/json, application/atom+xml, application/xml, text/xml")
         }
       try {
@@ -171,7 +171,7 @@ class OpdsCatalogRepository(
           readTimeout = 30_000
           instanceFollowRedirects = false
           requestMethod = "GET"
-          setRequestProperty("User-Agent", "PageNest/3.2.0 (Android Ebook Reader)")
+          setRequestProperty("User-Agent", "ATLAS/3.3 (Android Ebook Reader)")
         }
       try {
         val code = conn.responseCode

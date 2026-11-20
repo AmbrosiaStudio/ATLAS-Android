@@ -25,10 +25,10 @@ import org.robolectric.annotation.Config
 class ExampleRobolectricTest {
 
   @Test
-  fun `app name matches PageNest`() {
+  fun `app name matches ATLAS`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("PageNest", appName)
+    assertEquals("ATLAS", appName)
   }
 
   @Test
@@ -481,6 +481,7 @@ class ExampleRobolectricTest {
     val fixed = com.example.config.MonetizationConfig.computeNextPromptDelaySeconds(false, 45)
     assertEquals(45 * 60L, fixed)
 
+    assertTrue(com.example.config.MonetizationConfig.isValidSupporterCode("atlas-pro"))
     assertTrue(com.example.config.MonetizationConfig.isValidSupporterCode("pagenest-pro"))
     assertTrue(!com.example.config.MonetizationConfig.isValidSupporterCode("INVALID-KEY"))
     assertTrue(com.example.config.MonetizationConfig.activeIranTipLinks().isNotEmpty())
@@ -1097,5 +1098,212 @@ class ExampleRobolectricTest {
     assertEquals(360L, saved.wordsReadEstimated)
     assertEquals(3, saved.unitsAdvanced)
     engine.deleteBookInsights("insights-persist-1")
+  }
+
+  @Test
+  fun `atlas rebrand bilingual strings and streak reminder scheduler trigger accurately`() {
+    val en = com.example.ui.i18n.EnglishStrings
+    val fa = com.example.ui.i18n.PersianStrings
+
+    assertEquals("ATLAS", en.appName)
+    assertEquals("اطلس", fa.appName)
+
+    val stringGetters =
+      com.example.ui.i18n.AppStrings::class.java.methods.filter {
+        it.name.startsWith("get") && it.parameterCount == 0 && it.returnType == String::class.java
+      }
+    assertTrue("Expected at least 150 localized strings", stringGetters.size >= 150)
+
+    stringGetters.forEach { method ->
+      val enVal = method.invoke(en) as String
+      val faVal = method.invoke(fa) as String
+      assertTrue("Blank EN string for ${method.name}", enVal.isNotBlank())
+      assertTrue("Blank FA string for ${method.name}", faVal.isNotBlank())
+      assertTrue("Legacy PageNest found in EN.${method.name}: $enVal", !enVal.contains("PageNest", ignoreCase = true))
+      assertTrue("Legacy PageNest found in FA.${method.name}: $faVal", !faVal.contains("PageNest", ignoreCase = true))
+      assertTrue("Legacy پیج found in FA.${method.name}: $faVal", !faVal.contains("پیج"))
+    }
+
+    // Verify StreakReminderScheduler triggers today when time is in the future, and rolls to tomorrow when passed
+    val baseCal =
+      java.util.Calendar.getInstance().apply {
+        set(2026, java.util.Calendar.NOVEMBER, 20, 14, 0, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+      }
+    val nowMs = baseCal.timeInMillis
+
+    // Future today (18:30 -> 4h 30m later)
+    val futureTrigger = com.example.notifications.StreakReminderScheduler.computeNextTriggerMillis(18, 30, nowMs)
+    assertEquals(4L * 3_600_000L + 30L * 60_000L, futureTrigger - nowMs)
+
+    // Passed today (10:00 -> next day 10:00 = 20h later)
+    val nextDayTrigger = com.example.notifications.StreakReminderScheduler.computeNextTriggerMillis(10, 0, nowMs)
+    assertEquals(20L * 3_600_000L, nextDayTrigger - nowMs)
+  }
+
+  @Test
+  fun `atlas shelf widget latest highlight query returns newest saved quote`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      dao.upsertBook(
+        BookEntity(
+          id = "shelf-w-1",
+          title = "Meditations",
+          author = "Marcus Aurelius",
+          format = "EPUB",
+          filePath = "/tmp/meditations.epub",
+          coverPath = null,
+          fileSizeBytes = 1024L,
+          totalUnits = 4,
+        )
+      )
+      dao.insertHighlight(
+        HighlightEntity(
+          bookId = "shelf-w-1",
+          chapterOrPageIndex = 0,
+          selectedText = "Earlier reflection",
+          colorHex = "#FDE68A",
+          createdAt = 1000L,
+        )
+      )
+      dao.insertHighlight(
+        HighlightEntity(
+          bookId = "shelf-w-1",
+          chapterOrPageIndex = 1,
+          selectedText = "The happiness of your life depends upon the quality of your thoughts.",
+          colorHex = "#BFDBFE",
+          createdAt = 5000L,
+        )
+      )
+      val latest = dao.getLatestHighlight()
+      assertNotNull(latest)
+      assertEquals("The happiness of your life depends upon the quality of your thoughts.", latest!!.selectedText)
+      assertEquals("shelf-w-1", latest.bookId)
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `swiss ui preview flag persists in datastore and collection rename updates room shelf`() = runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val store = com.example.data.local.ReaderPreferencesDataStore(context)
+
+    store.updateSettings { it.copy(swissUiPreviewEnabled = true) }
+    assertTrue(store.settingsFlow.first().swissUiPreviewEnabled)
+
+    store.updateSettings { it.copy(swissUiPreviewEnabled = false) }
+    assertTrue(!store.settingsFlow.first().swissUiPreviewEnabled)
+
+    val db = Room.inMemoryDatabaseBuilder(context, PageNestDatabase::class.java).build()
+    try {
+      val dao = db.pageNestDao()
+      val libraryRepo =
+        com.example.data.repository.LibraryRepository(
+          context = context,
+          dao = dao,
+          epubParser = EpubParser(context),
+          pdfEngine = com.example.engine.pdf.PdfEngine(context),
+        )
+      val shelfId = libraryRepo.createShelf("Architecture")
+      assertNotNull(shelfId)
+      libraryRepo.renameShelf(shelfId!!, "Swiss Design")
+      val shelves = dao.observeAllShelves().first()
+      assertEquals(1, shelves.size)
+      assertEquals("Swiss Design", shelves.first().name)
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `atlas widgets have distinct names and valid swiss monochrome preview layouts`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val widgetNames =
+      listOf(
+        context.getString(R.string.widget_continue_name),
+        context.getString(R.string.widget_stats_name),
+        context.getString(R.string.widget_streak_name),
+        context.getString(R.string.widget_shelf_name),
+      )
+    assertEquals(4, widgetNames.toSet().size)
+    widgetNames.forEach { name ->
+      assertTrue("Widget name should begin with ATLAS: $name", name.startsWith("ATLAS"))
+    }
+
+    val inflater = android.view.LayoutInflater.from(context)
+    val previewLayouts =
+      listOf(
+        R.layout.widget_preview_continue,
+        R.layout.widget_preview_stats,
+        R.layout.widget_preview_streak,
+        R.layout.widget_preview_shelf,
+      )
+    previewLayouts.forEach { layoutRes ->
+      val view = inflater.inflate(layoutRes, null)
+      assertNotNull("Preview layout should inflate cleanly", view)
+    }
+  }
+
+  @Test
+  fun `home quick actions adapt contextually for empty unread and recently read libraries`() {
+    // 1. Empty library -> promotes Import Files + New Note (omits dead-end Resume)
+    val emptyActions =
+      com.example.ui.swiss.buildContextSensitiveQuickActions(
+        continueBook = null,
+        allBooks = emptyList(),
+        isPersian = false,
+      )
+    assertEquals(2, emptyActions.size)
+    assertEquals(com.example.ui.swiss.HomeQuickActionType.IMPORT_FILES, emptyActions[0].type)
+    assertTrue(emptyActions[0].isPrimaryContext)
+    assertEquals(com.example.ui.swiss.HomeQuickActionType.NEW_NOTE, emptyActions[1].type)
+
+    // 2. Unread book present -> promotes Start book + Import + New Note
+    val unreadBook =
+      BookEntity(
+        id = "q-unread",
+        title = "Grid Systems",
+        author = "Josef Muller-Brockmann",
+        format = "PDF",
+        filePath = "/tmp/grid.pdf",
+        coverPath = null,
+        fileSizeBytes = 2048L,
+        totalUnits = 12,
+        lastOpenedAt = 0L,
+      )
+    val unreadActions =
+      com.example.ui.swiss.buildContextSensitiveQuickActions(
+        continueBook = unreadBook,
+        allBooks = listOf(unreadBook),
+        isPersian = false,
+      )
+    assertEquals(3, unreadActions.size)
+    assertEquals(com.example.ui.swiss.HomeQuickActionType.RESUME_LAST_READ, unreadActions[0].type)
+    assertTrue(unreadActions[0].title.startsWith("Start:"))
+    assertEquals("q-unread", unreadActions[0].targetBookId)
+
+    // 3. Recently read document -> promotes Resume book with progress %, followed by New Note & Import
+    val activeBook =
+      unreadBook.copy(
+        id = "q-active",
+        title = "Meditations",
+        progressPercent = 42f,
+        lastOpenedAt = 1_700_000_000_000L,
+      )
+    val activeActions =
+      com.example.ui.swiss.buildContextSensitiveQuickActions(
+        continueBook = activeBook,
+        allBooks = listOf(unreadBook, activeBook),
+        isPersian = false,
+      )
+    assertEquals(3, activeActions.size)
+    assertEquals(com.example.ui.swiss.HomeQuickActionType.RESUME_LAST_READ, activeActions[0].type)
+    assertEquals("Resume: Meditations", activeActions[0].title)
+    assertTrue(activeActions[0].subtitle.contains("42%"))
+    assertEquals(com.example.ui.swiss.HomeQuickActionType.NEW_NOTE, activeActions[1].type)
+    assertEquals(com.example.ui.swiss.HomeQuickActionType.IMPORT_FILES, activeActions[2].type)
   }
 }

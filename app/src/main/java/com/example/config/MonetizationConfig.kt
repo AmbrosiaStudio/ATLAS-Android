@@ -73,19 +73,20 @@ object MonetizationConfig {
     )
 
   // ---------------------------------------------------------------------------
-  // 3) PageNest Pro (Premium Upgrade) Links & Pricing Labels
+  // 3) ATLAS Pro (Premium Upgrade) Links & Pricing Labels
   // Set your Myket / Play / Direct checkout URLs here.
   // ---------------------------------------------------------------------------
-  const val PRO_PURCHASE_URL_IRAN: String = "https://myket.ir/app/ir.pagenest.mrambrosia"
+  const val PRO_PURCHASE_URL_IRAN: String = "https://myket.ir/app/atlas.mrmabrosia.ir"
   const val PRO_PRICE_LABEL_IRAN: String = "مایکت / ارتقا به نسخه حرفه‌ای"
 
-  const val PRO_PURCHASE_URL_GLOBAL: String = "https://mrambrosia.ir/pagenest-pro"
-  const val PRO_PRICE_LABEL_GLOBAL: String = "Get PageNest Pro"
+  const val PRO_PURCHASE_URL_GLOBAL: String = "https://mrambrosia.ir/atlas-pro"
+  const val PRO_PRICE_LABEL_GLOBAL: String = "Get ATLAS Pro"
 
   // Optional supporter activation codes you can share with donors / buyers
   // (e.g. from Ko-fi, Zarinpal, or Patreon receipts). Case-insensitive.
   val acceptedSupporterCodes: Set<String> =
     setOf(
+      "ATLAS-PRO",
       "PAGENEST-PRO",
       "AMIRSENPAI-SUPPORTER",
     )

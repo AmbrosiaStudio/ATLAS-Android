@@ -23,131 +23,53 @@ import com.example.model.AppLanguage
 import com.example.model.ReadingThemeMode
 import com.example.ui.i18n.LocalAppStrings
 import com.example.ui.i18n.strings
+import com.example.ui.swiss.SwissAtlasTheme
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 
-private val CreamGreenColorScheme = lightColorScheme(
-  primary = NestGreen,
+private val AtlasMonochromeLightScheme = lightColorScheme(
+  primary = AtlasLightOnBg,
   onPrimary = Color.White,
-  primaryContainer = NestGreenContainerLight,
-  onPrimaryContainer = Color(0xFF18422F),
-  secondary = CreamAppOnMuted,
+  primaryContainer = AtlasLightSurfaceElevated,
+  onPrimaryContainer = AtlasLightOnBg,
+  secondary = AtlasLightOnMuted,
   onSecondary = Color.White,
-  secondaryContainer = CreamAppSurfaceElevated,
-  onSecondaryContainer = CreamAppOnBg,
-  background = CreamAppBg,
-  onBackground = CreamAppOnBg,
-  surface = CreamAppSurface,
-  onSurface = CreamAppOnBg,
-  surfaceVariant = CreamAppSurfaceElevated,
-  onSurfaceVariant = CreamAppOnMuted,
-  outline = CreamAppOutline,
-  outlineVariant = Color(0xFFE7DFD0),
+  secondaryContainer = AtlasLightSurfaceElevated,
+  onSecondaryContainer = AtlasLightOnBg,
+  background = AtlasLightBg,
+  onBackground = AtlasLightOnBg,
+  surface = AtlasLightSurface,
+  onSurface = AtlasLightOnBg,
+  surfaceVariant = AtlasLightSurfaceElevated,
+  onSurfaceVariant = AtlasLightOnMuted,
+  outline = Color(0xFFD2D2CD),
+  outlineVariant = AtlasLightOutline,
 )
 
-private val SepiaGreenColorScheme = lightColorScheme(
-  primary = Color(0xFF2A6248),
-  onPrimary = Color.White,
-  primaryContainer = Color(0xFFD6E7DC),
-  onPrimaryContainer = Color(0xFF173D2B),
-  secondary = Color(0xFF746350),
-  onSecondary = Color.White,
-  secondaryContainer = Color(0xFFE4D6B8),
-  onSecondaryContainer = Color(0xFF382C1E),
-  background = Color(0xFFF2E8D2),
-  onBackground = Color(0xFF382C1E),
-  surface = Color(0xFFFAF2DF),
-  onSurface = Color(0xFF382C1E),
-  surfaceVariant = Color(0xFFE6D8BA),
-  onSurfaceVariant = Color(0xFF746350),
-  outline = Color(0xFFCBBBA0),
-  outlineVariant = Color(0xFFDDD0B6),
+private val AtlasMonochromeDarkScheme = darkColorScheme(
+  primary = AtlasDarkOnBg,
+  onPrimary = AtlasDarkBg,
+  primaryContainer = AtlasDarkSurfaceElevated,
+  onPrimaryContainer = AtlasDarkOnBg,
+  secondary = AtlasDarkOnMuted,
+  onSecondary = AtlasDarkBg,
+  secondaryContainer = AtlasDarkSurfaceElevated,
+  onSecondaryContainer = AtlasDarkOnBg,
+  background = AtlasDarkBg,
+  onBackground = AtlasDarkOnBg,
+  surface = AtlasDarkSurface,
+  onSurface = AtlasDarkOnBg,
+  surfaceVariant = AtlasDarkSurfaceElevated,
+  onSurfaceVariant = AtlasDarkOnMuted,
+  outline = Color(0xFF424242),
+  outlineVariant = AtlasDarkOutline,
 )
 
-private val SageMistColorScheme = lightColorScheme(
-  primary = NestGreen,
-  onPrimary = Color.White,
-  primaryContainer = Color(0xFFD0E6D5),
-  onPrimaryContainer = Color(0xFF153B28),
-  secondary = Color(0xFF536558),
-  onSecondary = Color.White,
-  secondaryContainer = Color(0xFFD8E4D9),
-  onSecondaryContainer = Color(0xFF17231B),
-  background = Color(0xFFEAF0EA),
-  onBackground = Color(0xFF17231B),
-  surface = Color(0xFFF3F7F3),
-  onSurface = Color(0xFF17231B),
-  surfaceVariant = Color(0xFFDBE6DC),
-  onSurfaceVariant = Color(0xFF536558),
-  outline = Color(0xFFB5C9B8),
-  outlineVariant = Color(0xFFC9D9CB),
-)
-
-private val DarkCharcoalGreenColorScheme = darkColorScheme(
-  primary = NestGreenDarkAccent,
-  onPrimary = Color(0xFF0A2114),
-  primaryContainer = NestGreenContainerDark,
-  onPrimaryContainer = Color(0xFFA8E6C3),
-  secondary = DarkAppOnMuted,
-  onSecondary = DarkAppBg,
-  secondaryContainer = DarkAppSurfaceElevated,
-  onSecondaryContainer = DarkAppOnBg,
-  background = DarkAppBg,
-  onBackground = DarkAppOnBg,
-  surface = DarkAppSurface,
-  onSurface = DarkAppOnBg,
-  surfaceVariant = DarkAppSurfaceElevated,
-  onSurfaceVariant = DarkAppOnMuted,
-  outline = DarkAppOutline,
-  outlineVariant = Color(0xFF252A25),
-)
-
-private val AmoledGreenColorScheme = darkColorScheme(
-  primary = NestGreenDarkAccent,
-  onPrimary = Color(0xFF0A2114),
-  primaryContainer = Color(0xFF152D20),
-  onPrimaryContainer = Color(0xFFA8E6C3),
-  secondary = Color(0xFF949B94),
-  onSecondary = Color.Black,
-  secondaryContainer = Color(0xFF171C18),
-  onSecondaryContainer = Color(0xFFE5E2DA),
-  background = Color(0xFF000000),
-  onBackground = Color(0xFFE5E2DA),
-  surface = Color(0xFF0E100E),
-  onSurface = Color(0xFFE5E2DA),
-  surfaceVariant = Color(0xFF181C18),
-  onSurfaceVariant = Color(0xFF949B94),
-  outline = Color(0xFF242B25),
-  outlineVariant = Color(0xFF1B201C),
-)
-
-private val NightBwColorScheme = darkColorScheme(
-  primary = Color.White,
-  onPrimary = Color.Black,
-  primaryContainer = Color(0xFF242424),
-  onPrimaryContainer = Color.White,
-  secondary = Color(0xFFB3B3B3),
-  onSecondary = Color.Black,
-  secondaryContainer = Color(0xFF1B1B1B),
-  onSecondaryContainer = Color.White,
-  background = Color(0xFF000000),
-  onBackground = Color.White,
-  surface = Color(0xFF0C0C0C),
-  onSurface = Color.White,
-  surfaceVariant = Color(0xFF1A1A1A),
-  onSurfaceVariant = Color(0xFFB3B3B3),
-  outline = Color(0xFF3A3A3A),
-  outlineVariant = Color(0xFF262626),
-)
-
-private val PageNestShapes = Shapes(
-  extraSmall = RoundedCornerShape(10.dp),
-  small = RoundedCornerShape(14.dp),
-  medium = RoundedCornerShape(20.dp),
-  large = RoundedCornerShape(24.dp),
-  extraLarge = RoundedCornerShape(28.dp),
+private val AtlasShapes = Shapes(
+  extraSmall = RoundedCornerShape(2.dp),
+  small = RoundedCornerShape(4.dp),
+  medium = RoundedCornerShape(6.dp),
+  large = RoundedCornerShape(8.dp),
+  extraLarge = RoundedCornerShape(10.dp),
 )
 
 @Composable
@@ -156,103 +78,36 @@ fun PageNestTheme(
   appLanguage: AppLanguage = AppLanguage.ENGLISH,
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
-    when (themeMode) {
-      ReadingThemeMode.PAPER -> CreamGreenColorScheme
-      ReadingThemeMode.SEPIA -> SepiaGreenColorScheme
-      ReadingThemeMode.SAGE_MIST -> SageMistColorScheme
-      ReadingThemeMode.DARK -> DarkCharcoalGreenColorScheme
-      ReadingThemeMode.AMOLED -> AmoledGreenColorScheme
-      ReadingThemeMode.NIGHT_BW -> NightBwColorScheme
-    }
-
-  val layoutDir = if (appLanguage.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
-  val strings = appLanguage.strings()
-  val typography = buildPageNestTypography(appLanguage == AppLanguage.PERSIAN)
-
-  CompositionLocalProvider(
-    LocalLayoutDirection provides layoutDir,
-    LocalAppStrings provides strings,
-  ) {
-    MaterialTheme(
-      colorScheme = colorScheme,
-      typography = typography,
-      shapes = PageNestShapes,
-      content = content,
-    )
-  }
+  SwissAtlasTheme(
+    isDark = themeMode.isDark,
+    appLanguage = appLanguage,
+    content = content,
+  )
 }
 
 /**
- * Specular Liquid-Glass container — translucent theme-tinted glass with crisp light-catching rim
- * and clean clarity (never heavy matte frost). Reserved strictly for the Reader screen.
+ * Swiss Editorial Monochrome floating container with crisp hairline architectural border.
+ * Keeps signature compatibility with reader chrome while eliminating heavy gradients and blue glass.
  */
 @Composable
 fun LiquidGlassCard(
   hazeState: HazeState?,
   isDark: Boolean,
   modifier: Modifier = Modifier,
-  shape: Shape = RoundedCornerShape(22.dp),
-  tintColor: Color = if (isDark) Color(0xFF171A18).copy(alpha = 0.64f) else Color(0xFFFFFCF5).copy(alpha = 0.66f),
+  shape: Shape = RoundedCornerShape(8.dp),
+  tintColor: Color = if (isDark) Color(0xFF1B1B1B) else Color(0xFFFFFFFF),
   batterySaverEnabled: Boolean = false,
   content: @Composable BoxScope.() -> Unit,
 ) {
-  val rimBrush =
-    androidx.compose.ui.graphics.Brush.verticalGradient(
-      colors =
-        if (isDark) {
-          listOf(
-            Color.White.copy(alpha = 0.34f),
-            Color.White.copy(alpha = 0.14f),
-            Color.White.copy(alpha = 0.08f),
-          )
-        } else {
-          listOf(
-            Color.White.copy(alpha = 0.88f),
-            Color.White.copy(alpha = 0.42f),
-            Color.Black.copy(alpha = 0.09f),
-          )
-        }
-    )
-  val specularSheen =
-    androidx.compose.ui.graphics.Brush.verticalGradient(
-      colors =
-        if (isDark) {
-          listOf(
-            Color.White.copy(alpha = 0.13f),
-            Color.Transparent,
-            Color.Black.copy(alpha = 0.10f),
-          )
-        } else {
-          listOf(
-            Color.White.copy(alpha = 0.42f),
-            Color.White.copy(alpha = 0.06f),
-            Color.Black.copy(alpha = 0.03f),
-          )
-        }
-    )
+  val borderColor = if (isDark) Color(0xFF303030) else Color(0xFFE6E6E2)
+  val flatSurface = tintColor.copy(alpha = if (batterySaverEnabled) 0.98f else 0.95f)
 
   Box(
     modifier =
       modifier
         .clip(shape)
-        .then(
-          if (hazeState != null && !batterySaverEnabled) {
-            Modifier.hazeEffect(
-              state = hazeState,
-              style =
-                HazeStyle(
-                  backgroundColor = tintColor,
-                  tint = HazeTint(tintColor),
-                  blurRadius = 8.dp,
-                ),
-            )
-          } else {
-            Modifier.background(if (batterySaverEnabled) tintColor.copy(alpha = 0.94f) else tintColor)
-          }
-        )
-        .then(if (batterySaverEnabled) Modifier else Modifier.background(specularSheen))
-        .border(BorderStroke(0.95.dp, rimBrush), shape),
+        .background(flatSurface)
+        .border(BorderStroke(1.dp, borderColor), shape),
     content = content,
   )
 }

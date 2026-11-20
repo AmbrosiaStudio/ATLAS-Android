@@ -101,11 +101,15 @@ class SettingsViewModel(
           }
         current.copy(appLanguage = language, fontOption = nextFont)
       }
+      com.example.widget.WidgetUpdater.requestAllUpdates(context)
     }
   }
 
   fun setThemeMode(mode: ReadingThemeMode) {
-    viewModelScope.launch { readerRepository.updateSettings { it.copy(themeMode = mode) } }
+    viewModelScope.launch {
+      readerRepository.updateSettings { it.copy(themeMode = mode) }
+      com.example.widget.WidgetUpdater.requestAllUpdates(context)
+    }
   }
 
   fun setReadingLayoutMode(mode: ReadingLayoutMode) {
@@ -269,7 +273,7 @@ class SettingsViewModel(
       }
       message.value =
         if (isFa) "از حمایت ارزشمند شما سپاسگزاریم!"
-        else "Thank you so much for supporting PageNest!"
+        else "Thank you so much for supporting ATLAS!"
     }
   }
 
@@ -285,8 +289,8 @@ class SettingsViewModel(
         )
       }
       message.value =
-        if (isFa) "نسخه پیج‌نست Pro فعال شد — سپاس از حمایت شما!"
-        else "PageNest Pro activated — thank you for your support!"
+        if (isFa) "نسخه اطلس Pro فعال شد — سپاس از حمایت شما!"
+        else "ATLAS Pro activated — thank you for your support!"
     }
     return true
   }
@@ -345,9 +349,9 @@ class SettingsViewModel(
     } else {
       val sample =
         if (uiState.value.settings.appLanguage == AppLanguage.PERSIAN) {
-          "به پیج‌نست خوش آمدید. خواندن آرام و تایپوگرافی دقیق، هر فصل را لذت‌بخش می‌کند."
+          "به اطلس خوش آمدید. خواندن آرام و تایپوگرافی دقیق، هر فصل را لذت‌بخش می‌کند."
         } else {
-          "Welcome to PageNest. Good typography and calm voices make every chapter effortless."
+          "Welcome to ATLAS. Crisp typography and calm voices make every chapter effortless."
         }
       readAloud.speakSample(sample)
     }

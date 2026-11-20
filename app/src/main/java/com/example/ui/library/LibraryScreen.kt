@@ -98,6 +98,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.example.ui.swiss.AtlasGeometricSymbol
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -202,42 +203,41 @@ fun LibraryScreen(
         }
 
       Column(modifier = Modifier.fillMaxSize().widthIn(max = 900.dp)) {
-        // Clean Two-Tier Editorial Bookstore Header (Solid Cream/Green or #121212/Green)
+        // Clean Two-Tier ATLAS Architectural Header (Porcelain Light / Midnight Slate Dark)
         Surface(
           color = MaterialTheme.colorScheme.background,
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
-            // Tier 1: Brand Emblem + Title + Primary Utility Actions
+            // Tier 1: Blue ATLAS Emblem + Architectural Title + Primary Utility Actions
             Row(
               modifier =
                 Modifier
                   .fillMaxWidth()
-                  .padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = if (uiState.books.isNotEmpty()) 8.dp else 14.dp),
+                  .padding(start = 18.dp, end = 10.dp, top = 14.dp, bottom = if (uiState.books.isNotEmpty()) 10.dp else 14.dp),
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.SpaceBetween,
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f).padding(end = 4.dp),
+                modifier = Modifier.weight(1f).padding(end = 6.dp),
               ) {
                 Surface(
-                  shape = RoundedCornerShape(11.dp),
-                  color = MaterialTheme.colorScheme.primaryContainer,
-                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
-                  modifier = Modifier.size(36.dp),
+                  shape = RoundedCornerShape(13.dp),
+                  color = Color(0xFF111832),
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                  shadowElevation = 2.dp,
+                  modifier = Modifier.size(40.dp),
                 ) {
-                  Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                      imageVector = Icons.Rounded.AutoStories,
-                      contentDescription = null,
-                      tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                      modifier = Modifier.size(18.dp),
-                    )
-                  }
+                  Image(
+                    painter = painterResource(id = R.drawable.img_atlas_logo_foreground),
+                    contentDescription = strings.appName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
+                  )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                   Row(
@@ -247,22 +247,22 @@ fun LibraryScreen(
                     Text(
                       text = strings.appName,
                       fontFamily = if (isFa) NotoNaskhFontFamily else LiterataFontFamily,
-                      fontSize = if (isFa) 22.sp else 25.sp,
-                      lineHeight = if (isFa) 28.sp else 30.sp,
-                      fontWeight = FontWeight.SemiBold,
+                      fontSize = if (isFa) 22.sp else 24.sp,
+                      lineHeight = if (isFa) 28.sp else 29.sp,
+                      fontWeight = FontWeight.Bold,
                       color = MaterialTheme.colorScheme.onBackground,
-                      letterSpacing = if (isFa) 0.sp else (-0.5).sp,
+                      letterSpacing = if (isFa) 0.sp else 1.2.sp,
                       maxLines = 1,
                       overflow = TextOverflow.Ellipsis,
                     )
                     if (uiState.settings.isProUnlocked) {
                       Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                         modifier =
                           Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable { showProDialog = true }
                             .testTag("library_pro_badge"),
                       ) {
@@ -271,7 +271,7 @@ fun LibraryScreen(
                           style = MaterialTheme.typography.labelSmall,
                           fontWeight = FontWeight.Bold,
                           color = MaterialTheme.colorScheme.primary,
-                          modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                          modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                         )
                       }
                     }
@@ -323,14 +323,36 @@ fun LibraryScreen(
                   }
                 }
 
+                // Temporary UI/UX preview toggle: switches cleanly to the Swiss Monochrome ATLAS design
+                IconButton(
+                  onClick = { viewModel.setSwissUiPreviewEnabled(true) },
+                  modifier = Modifier.minimumInteractiveComponentSize().testTag("toggle_swiss_preview_button"),
+                ) {
+                  Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.size(38.dp),
+                  ) {
+                    Box(contentAlignment = Alignment.Center) {
+                      AtlasGeometricSymbol(
+                        size = 20.dp,
+                        color = MaterialTheme.colorScheme.surface,
+                        contentDescriptionText = "Preview Swiss Monochrome UI",
+                      )
+                    }
+                  }
+                }
+
                 IconButton(
                   onClick = onOpenSettings,
                   modifier = Modifier.minimumInteractiveComponentSize().testTag("library_settings_button"),
                 ) {
                   Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(36.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.size(38.dp),
                   ) {
                     Box(contentAlignment = Alignment.Center) {
                       Icon(
@@ -348,11 +370,21 @@ fun LibraryScreen(
                     onClick = { showMoreMenu = true },
                     modifier = Modifier.minimumInteractiveComponentSize().testTag("library_more_button"),
                   ) {
-                    Icon(
-                      imageVector = Icons.Rounded.MoreVert,
-                      contentDescription = "More options",
-                      tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Surface(
+                      shape = CircleShape,
+                      color = MaterialTheme.colorScheme.surface,
+                      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                      modifier = Modifier.size(38.dp),
+                    ) {
+                      Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                          imageVector = Icons.Rounded.MoreVert,
+                          contentDescription = "More options",
+                          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                          modifier = Modifier.size(19.dp),
+                        )
+                      }
+                    }
                   }
                   DropdownMenu(
                     expanded = showMoreMenu,
@@ -413,149 +445,12 @@ fun LibraryScreen(
               }
             }
 
-            // Tier 2: Sort Selector Pill & Segmented Grid/List Switcher
-            if (uiState.totalLibraryCount > 0) {
-              Row(
-                modifier =
-                  Modifier
-                    .fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-              ) {
-                Box {
-                  Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier =
-                      Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { showSortMenu = true }
-                        .testTag("sort_menu_button"),
-                  ) {
-                    Row(
-                      modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                      verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                      Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Sort,
-                        contentDescription = "Sort library",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
-                      )
-                      Text(
-                        text = if (isFa) uiState.sortOrder.faLabel else uiState.sortOrder.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        softWrap = false,
-                      )
-                      Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                      )
-                    }
-                  }
-                  DropdownMenu(
-                    expanded = showSortMenu,
-                    onDismissRequest = { showSortMenu = false },
-                    containerColor = MaterialTheme.colorScheme.surface,
-                  ) {
-                    LibrarySortOrder.entries.forEach { order ->
-                      DropdownMenuItem(
-                        text = {
-                          Text(
-                            text = if (isFa) order.faLabel else order.label,
-                            fontWeight =
-                              if (uiState.sortOrder == order) FontWeight.SemiBold
-                              else FontWeight.Normal,
-                            color =
-                              if (uiState.sortOrder == order) MaterialTheme.colorScheme.primary
-                              else MaterialTheme.colorScheme.onSurface,
-                          )
-                        },
-                        onClick = {
-                          viewModel.setSortOrder(order)
-                          showSortMenu = false
-                        },
-                      )
-                    }
-                  }
-                }
-
-                // Segmented Grid / List Toggle Pill
-                Surface(
-                  shape = RoundedCornerShape(12.dp),
-                  color = MaterialTheme.colorScheme.surface,
-                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                  modifier =
-                    Modifier
-                      .clip(RoundedCornerShape(12.dp))
-                      .clickable(onClick = viewModel::toggleLayoutMode)
-                      .testTag("toggle_layout_button"),
-                ) {
-                  Row(
-                    modifier = Modifier.padding(3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                  ) {
-                    val isGrid = uiState.layoutMode == LibraryLayoutMode.GRID
-                    Box(
-                      modifier =
-                        Modifier
-                          .clip(RoundedCornerShape(9.dp))
-                          .background(
-                            if (isGrid) MaterialTheme.colorScheme.primaryContainer
-                            else Color.Transparent
-                          )
-                          .padding(horizontal = 10.dp, vertical = 5.dp),
-                      contentAlignment = Alignment.Center,
-                    ) {
-                      Icon(
-                        imageVector = Icons.Rounded.GridView,
-                        contentDescription = "Grid view",
-                        tint =
-                          if (isGrid) MaterialTheme.colorScheme.onPrimaryContainer
-                          else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                      )
-                    }
-                    Box(
-                      modifier =
-                        Modifier
-                          .clip(RoundedCornerShape(9.dp))
-                          .background(
-                            if (!isGrid) MaterialTheme.colorScheme.primaryContainer
-                            else Color.Transparent
-                          )
-                          .padding(horizontal = 10.dp, vertical = 5.dp),
-                      contentAlignment = Alignment.Center,
-                    ) {
-                      Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.FormatListBulleted,
-                        contentDescription = "List view",
-                        tint =
-                          if (!isGrid) MaterialTheme.colorScheme.onPrimaryContainer
-                          else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                      )
-                    }
-                  }
-                }
-              }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // Clean single-tier ATLAS Top Bar (airy, borderless)
           }
         }
 
         if (uiState.totalLibraryCount == 0 && !uiState.hasActiveFilterOrSearch) {
-          EmptyLibraryView(
+          AtlasHomeEmptyState(
             isImporting = uiState.isImporting,
             onImportClick = launchImportPicker,
             onLoadSamplesClick = viewModel::loadSampleClassics,
@@ -568,7 +463,7 @@ fun LibraryScreen(
           )
         } else {
           LazyColumn(
-            contentPadding = PaddingValues(top = 14.dp, bottom = 36.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = 40.dp),
             modifier =
               Modifier
                 .fillMaxSize()
@@ -584,10 +479,10 @@ fun LibraryScreen(
               }
             }
 
-            // Solid Clean Search Bar
+            // 1. Sleek Capsule Search Bar
             item {
               Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(22.dp),
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
@@ -605,7 +500,7 @@ fun LibraryScreen(
                     Icon(
                       imageVector = Icons.Rounded.Search,
                       contentDescription = null,
-                      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                      tint = MaterialTheme.colorScheme.primary,
                     )
                   },
                   trailingIcon = {
@@ -635,7 +530,212 @@ fun LibraryScreen(
               }
             }
 
-            // Reading Status & Favorites Filter Chips + Custom Shelves Bar
+            // 2. Hero Spotlight Stage — Now Reading
+            if (!uiState.hasActiveFilterOrSearch && uiState.continueBook != null) {
+              val heroBook = uiState.continueBook!!
+              item {
+                Spacer(modifier = Modifier.height(12.dp))
+                AtlasNowReadingSpotlight(
+                  book = heroBook,
+                  isFa = isFa,
+                  eyebrowText =
+                    if (uiState.lastSessionBookId == heroBook.id) strings.nowReadingEyebrow
+                    else strings.continueReading.uppercase(),
+                  continueLabel = strings.continueAction,
+                  infoContentDescription = strings.bookInfoMenuAction,
+                  onClick = { onOpenBook(heroBook.id) },
+                  onInfoClick = { onOpenBookInfo(heroBook.id) },
+                  modifier =
+                    Modifier
+                      .fillMaxWidth()
+                      .padding(horizontal = 20.dp)
+                      .testTag("continue_reading_card"),
+                )
+              }
+            }
+
+            // 3. Asymmetric ATLAS Bento Dashboard (Daily Goal Ring + Studio + Free Catalog)
+            if (!uiState.hasActiveFilterOrSearch) {
+              item {
+                Spacer(modifier = Modifier.height(12.dp))
+                AtlasBentoDashboardStrip(
+                  todayMinutes = uiState.todayReadingMinutes,
+                  todaySeconds = uiState.todayReadingSeconds,
+                  dailyGoalMinutes = uiState.dailyGoalMinutes,
+                  totalReadingMinutesAllTime = uiState.totalReadingMinutesAllTime,
+                  progressFraction = uiState.dailyGoalProgressFraction,
+                  goalMet = uiState.isDailyGoalMet,
+                  onEditGoal = { showGoalDialog = true },
+                  onOpenStats = onOpenStats,
+                  onOpenStudio = onOpenStudio,
+                  onOpenCatalog = onOpenCatalog,
+                  modifier = Modifier.padding(horizontal = 20.dp),
+                )
+              }
+            }
+
+            // 4. Recently Opened Cover Shelf
+            if (!uiState.hasActiveFilterOrSearch && uiState.recentBooks.size > 1) {
+              item {
+                Spacer(modifier = Modifier.height(18.dp))
+                AtlasHomeSectionHeader(
+                  title = strings.recentlyOpened,
+                  countBadge = uiState.recentBooks.size,
+                )
+                LazyRow(
+                  contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                  horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                  items(uiState.recentBooks, key = { "recent_${it.id}" }) { book ->
+                    AtlasRecentShelfCard(book = book, onClick = { onOpenBook(book.id) })
+                  }
+                }
+              }
+            }
+
+            // 5. All Books / Matching Books Header with inline Sort & Grid/List Segmented Switcher
+            item {
+              Spacer(modifier = Modifier.height(16.dp))
+              AtlasHomeSectionHeader(
+                title =
+                  if (uiState.hasActiveFilterOrSearch) strings.matchingBooks
+                  else strings.allBooks,
+                countBadge = uiState.books.size,
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  // Sort selector pill
+                  Box {
+                    Surface(
+                      shape = CircleShape,
+                      color = MaterialTheme.colorScheme.surface,
+                      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                      modifier =
+                        Modifier
+                          .clip(CircleShape)
+                          .clickable { showSortMenu = true }
+                          .testTag("sort_menu_button"),
+                    ) {
+                      Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                      ) {
+                        Icon(
+                          imageVector = Icons.AutoMirrored.Rounded.Sort,
+                          contentDescription = "Sort library",
+                          tint = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(15.dp),
+                        )
+                        Text(
+                          text = if (isFa) uiState.sortOrder.faLabel else uiState.sortOrder.label,
+                          style = MaterialTheme.typography.labelSmall,
+                          fontWeight = FontWeight.SemiBold,
+                          color = MaterialTheme.colorScheme.onSurface,
+                          maxLines = 1,
+                          softWrap = false,
+                        )
+                        Icon(
+                          imageVector = Icons.Rounded.KeyboardArrowDown,
+                          contentDescription = null,
+                          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                          modifier = Modifier.size(14.dp),
+                        )
+                      }
+                    }
+                    DropdownMenu(
+                      expanded = showSortMenu,
+                      onDismissRequest = { showSortMenu = false },
+                      containerColor = MaterialTheme.colorScheme.surface,
+                    ) {
+                      LibrarySortOrder.entries.forEach { order ->
+                        DropdownMenuItem(
+                          text = {
+                            Text(
+                              text = if (isFa) order.faLabel else order.label,
+                              fontWeight =
+                                if (uiState.sortOrder == order) FontWeight.SemiBold
+                                else FontWeight.Normal,
+                              color =
+                                if (uiState.sortOrder == order) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                            )
+                          },
+                          onClick = {
+                            viewModel.setSortOrder(order)
+                            showSortMenu = false
+                          },
+                        )
+                      }
+                    }
+                  }
+
+                  // Segmented Grid / List Toggle Pill
+                  Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier =
+                      Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = viewModel::toggleLayoutMode)
+                        .testTag("toggle_layout_button"),
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(3.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                      val isGrid = uiState.layoutMode == LibraryLayoutMode.GRID
+                      Box(
+                        modifier =
+                          Modifier
+                            .clip(CircleShape)
+                            .background(
+                              if (isGrid) MaterialTheme.colorScheme.primaryContainer
+                              else Color.Transparent
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center,
+                      ) {
+                        Icon(
+                          imageVector = Icons.Rounded.GridView,
+                          contentDescription = "Grid view",
+                          tint =
+                            if (isGrid) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                          modifier = Modifier.size(15.dp),
+                        )
+                      }
+                      Box(
+                        modifier =
+                          Modifier
+                            .clip(CircleShape)
+                            .background(
+                              if (!isGrid) MaterialTheme.colorScheme.primaryContainer
+                              else Color.Transparent
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center,
+                      ) {
+                        Icon(
+                          imageVector = Icons.AutoMirrored.Rounded.FormatListBulleted,
+                          contentDescription = "List view",
+                          tint =
+                            if (!isGrid) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                          modifier = Modifier.size(15.dp),
+                        )
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // 6. Unified Status Filters & Custom Shelves Ribbon
             item {
               Spacer(modifier = Modifier.height(6.dp))
               LazyRow(
@@ -692,105 +792,24 @@ fun LibraryScreen(
                 }
               }
 
-              // Custom Shelves & Collections Row
+              // Custom Shelves Row (+ New Shelf & User Collections)
               LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
               ) {
                 item {
                   Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                    modifier =
-                      Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onOpenStudio)
-                        .testTag("library_studio_chip"),
-                  ) {
-                    Row(
-                      modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                      verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                      Icon(
-                        imageVector = Icons.Rounded.EditNote,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(15.dp),
-                      )
-                      Text(
-                        text = strings.studioTitle,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        softWrap = false,
-                      )
-                      Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                      ) {
-                        Text(
-                          text = strings.studioBetaBadge,
-                          style = MaterialTheme.typography.labelSmall,
-                          fontSize = 9.sp,
-                          fontWeight = FontWeight.Bold,
-                          color = MaterialTheme.colorScheme.primary,
-                          modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                        )
-                      }
-                    }
-                  }
-                }
-
-                item {
-                  Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                    modifier =
-                      Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onOpenCatalog)
-                        .testTag("library_catalog_chip"),
-                  ) {
-                    Row(
-                      modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                      verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                      Icon(
-                        imageVector = Icons.Rounded.Public,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(15.dp),
-                      )
-                      Text(
-                        text = strings.catalogTitle,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        softWrap = false,
-                      )
-                    }
-                  }
-                }
-
-                item {
-                  Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                     modifier =
                       Modifier
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(CircleShape)
                         .clickable { showCreateShelfDialog = true }
                         .testTag("new_shelf_button"),
                   ) {
                     Row(
-                      modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                      modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                       verticalAlignment = Alignment.CenterVertically,
                       horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
@@ -798,7 +817,7 @@ fun LibraryScreen(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(14.dp),
                       )
                       Text(
                         text = strings.newShelfAction,
@@ -815,7 +834,7 @@ fun LibraryScreen(
                 items(uiState.shelves, key = { "shelf_${it.id}" }) { shelf ->
                   val selected = uiState.selectedShelfId == shelf.id
                   Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = CircleShape,
                     color =
                       if (selected) MaterialTheme.colorScheme.primaryContainer
                       else MaterialTheme.colorScheme.surface,
@@ -828,12 +847,12 @@ fun LibraryScreen(
                       ),
                     modifier =
                       Modifier
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(CircleShape)
                         .clickable { viewModel.selectShelfFilter(shelf.id) }
                         .testTag("shelf_chip_${shelf.id}"),
                   ) {
                     Row(
-                      modifier = Modifier.padding(start = 11.dp, end = if (selected) 6.dp else 11.dp, top = 7.dp, bottom = 7.dp),
+                      modifier = Modifier.padding(start = 11.dp, end = if (selected) 7.dp else 11.dp, top = 6.dp, bottom = 6.dp),
                       verticalAlignment = Alignment.CenterVertically,
                       horizontalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
@@ -843,7 +862,7 @@ fun LibraryScreen(
                         tint =
                           if (selected) MaterialTheme.colorScheme.onPrimaryContainer
                           else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(13.dp),
                       )
                       Text(
                         text = shelf.name,
@@ -862,7 +881,7 @@ fun LibraryScreen(
                           tint = MaterialTheme.colorScheme.onPrimaryContainer,
                           modifier =
                             Modifier
-                              .size(16.dp)
+                              .size(15.dp)
                               .clip(CircleShape)
                               .clickable { shelfPendingDelete = shelf },
                         )
@@ -871,80 +890,10 @@ fun LibraryScreen(
                   }
                 }
               }
+              Spacer(modifier = Modifier.height(6.dp))
             }
 
-            // Daily Reading Goal Tracker Card
-            if (!uiState.hasActiveFilterOrSearch) {
-              item {
-                Spacer(modifier = Modifier.height(8.dp))
-                DailyReadingGoalCard(
-                  todayMinutes = uiState.todayReadingMinutes,
-                  todaySeconds = uiState.todayReadingSeconds,
-                  dailyGoalMinutes = uiState.dailyGoalMinutes,
-                  totalReadingMinutesAllTime = uiState.totalReadingMinutesAllTime,
-                  progressFraction = uiState.dailyGoalProgressFraction,
-                  goalMet = uiState.isDailyGoalMet,
-                  onEditGoal = { showGoalDialog = true },
-                  onOpenStats = onOpenStats,
-                  modifier =
-                    Modifier
-                      .fillMaxWidth()
-                      .padding(horizontal = 20.dp)
-                      .testTag("daily_goal_card"),
-                )
-              }
-            }
-
-            // Continue Reading Hero Card
-            if (!uiState.hasActiveFilterOrSearch && uiState.continueBook != null) {
-              val heroBook = uiState.continueBook!!
-              item {
-                Spacer(modifier = Modifier.height(14.dp))
-                SectionHeading(
-                  title =
-                    if (uiState.lastSessionBookId == heroBook.id) strings.resumeSession
-                    else strings.continueReading,
-                )
-                ContinueReadingCard(
-                  book = heroBook,
-                  infoContentDescription = strings.bookInfoMenuAction,
-                  onClick = { onOpenBook(heroBook.id) },
-                  onInfoClick = { onOpenBookInfo(heroBook.id) },
-                  modifier =
-                    Modifier
-                      .fillMaxWidth()
-                      .padding(horizontal = 20.dp, vertical = 6.dp)
-                      .testTag("continue_reading_card"),
-                )
-              }
-            }
-
-            // Recently Opened Rail
-            if (!uiState.hasActiveFilterOrSearch && uiState.recentBooks.size > 1) {
-              item {
-                Spacer(modifier = Modifier.height(14.dp))
-                SectionHeading(title = strings.recentlyOpened)
-                LazyRow(
-                  contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
-                  horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                  items(uiState.recentBooks, key = { "recent_${it.id}" }) { book ->
-                    RecentBookRailCard(book = book, onClick = { onOpenBook(book.id) })
-                  }
-                }
-              }
-            }
-
-            // All Books Section
-            item {
-              Spacer(modifier = Modifier.height(14.dp))
-              SectionHeading(
-                title =
-                  if (uiState.hasActiveFilterOrSearch) strings.matchingBooks
-                  else strings.allBooks,
-              )
-            }
-
+            // 7. Library Grid / List
             if (uiState.books.isEmpty()) {
               item {
                 Box(
@@ -1729,16 +1678,16 @@ private fun BookGridCard(
   var showCardMenu by remember { mutableStateOf(false) }
 
   Surface(
-    shape = RoundedCornerShape(18.dp),
+    shape = RoundedCornerShape(22.dp),
     color = MaterialTheme.colorScheme.surface,
     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    modifier = modifier.clip(RoundedCornerShape(18.dp)).clickable(onClick = onClick),
+    modifier = modifier.clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick),
   ) {
     Column(modifier = Modifier.padding(10.dp)) {
       Box(modifier = Modifier.fillMaxWidth()) {
         BookCoverThumbnail(
           book = book,
-          modifier = Modifier.fillMaxWidth().aspectRatio(0.70f),
+          modifier = Modifier.fillMaxWidth().aspectRatio(0.68f),
         )
         FormatPill(
           format = book.bookFormat(),
@@ -1899,10 +1848,10 @@ private fun BookListRow(
   var showRowMenu by remember { mutableStateOf(false) }
 
   Surface(
-    shape = RoundedCornerShape(16.dp),
+    shape = RoundedCornerShape(20.dp),
     color = MaterialTheme.colorScheme.surface,
     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    modifier = modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+    modifier = modifier.clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick),
   ) {
     Row(
       modifier = Modifier.fillMaxWidth().padding(10.dp),
@@ -2025,7 +1974,7 @@ private fun BookListRow(
 }
 
 @Composable
-private fun BookCoverThumbnail(
+internal fun BookCoverThumbnail(
   book: BookEntity,
   modifier: Modifier = Modifier,
 ) {
@@ -2040,13 +1989,13 @@ private fun BookCoverThumbnail(
       modifier = modifier.clip(shape),
     )
   } else {
-    // Solid flat editorial cloth colors (no gradients)
+    // Solid flat ATLAS editorial cloth colors
     val clothColors =
       listOf(
-        Color(0xFF2D6A4F), // Botanical Forest Green
-        Color(0xFF7D4838), // Terracotta Brick
-        Color(0xFF295264), // Deep Slate Teal
-        Color(0xFF5D5342), // Espresso Linen
+        Color(0xFF1E4FA8), // Atlas Cobalt Blue
+        Color(0xFF264D73), // Deep Ocean Slate
+        Color(0xFF6B473C), // Warm Mahogany
+        Color(0xFF394662), // Midnight Indigo
       )
     val clothColor = clothColors[abs(book.title.hashCode()) % clothColors.size]
     Box(
@@ -2090,7 +2039,7 @@ private fun BookCoverThumbnail(
 }
 
 @Composable
-private fun FormatPill(
+internal fun FormatPill(
   format: BookFormat,
   modifier: Modifier = Modifier,
 ) {

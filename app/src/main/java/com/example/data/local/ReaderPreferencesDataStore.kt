@@ -84,6 +84,7 @@ class ReaderPreferencesDataStore(private val context: Context) {
     val READING_RULER_STYLE = stringPreferencesKey("reading_ruler_style")
     val READING_RULER_HEIGHT_DP = intPreferencesKey("reading_ruler_height_dp")
     val READING_RULER_DIM_ALPHA = floatPreferencesKey("reading_ruler_dim_alpha")
+    val SWISS_UI_PREVIEW_ENABLED = booleanPreferencesKey("swiss_ui_preview_enabled")
   }
 
   private fun Preferences.toSettings(): ReaderSettings =
@@ -168,6 +169,7 @@ class ReaderPreferencesDataStore(private val context: Context) {
           ?: ReadingRulerStyle.SPOTLIGHT_BAND,
       readingRulerHeightDp = (this[Keys.READING_RULER_HEIGHT_DP] ?: 56).coerceIn(32, 140),
       readingRulerDimAlpha = (this[Keys.READING_RULER_DIM_ALPHA] ?: 0.45f).coerceIn(0.15f, 0.75f),
+      swissUiPreviewEnabled = this[Keys.SWISS_UI_PREVIEW_ENABLED] ?: false,
     )
 
   val settingsFlow: Flow<ReaderSettings> = context.readerDataStore.data.map { it.toSettings() }
@@ -234,6 +236,7 @@ class ReaderPreferencesDataStore(private val context: Context) {
       prefs[Keys.READING_RULER_STYLE] = next.readingRulerStyle.name
       prefs[Keys.READING_RULER_HEIGHT_DP] = next.readingRulerHeightDp
       prefs[Keys.READING_RULER_DIM_ALPHA] = next.readingRulerDimAlpha
+      prefs[Keys.SWISS_UI_PREVIEW_ENABLED] = next.swissUiPreviewEnabled
     }
   }
 

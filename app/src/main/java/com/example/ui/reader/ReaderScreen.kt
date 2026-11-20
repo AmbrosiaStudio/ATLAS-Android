@@ -88,6 +88,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.example.ui.swiss.AtlasReaderToolbar
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -408,7 +409,7 @@ fun ReaderScreen(
               color = palette.secondaryText,
               textAlign = TextAlign.Center,
             )
-            val onAccent = if (palette.isDark) Color(0xFF082115) else Color.White
+            val onAccent = if (palette.isDark) Color(0xFF071630) else Color.White
             Button(
               onClick = onNavigateBack,
               colors =
@@ -498,130 +499,29 @@ fun ReaderScreen(
       )
     }
 
-    // Theme-responsive Clear Specular Liquid-Glass Top Header
+    // Distraction-free Swiss Editorial Monochrome Reader Top Toolbar
     AnimatedVisibility(
       visible = uiState.controlsVisible,
       enter = if (batterySaverEnabled) EnterTransition.None else fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + slideInVertically { -it / 2 },
       exit = if (batterySaverEnabled) ExitTransition.None else fadeOut(spring(stiffness = Spring.StiffnessMedium)) + slideOutVertically { -it / 2 },
-      modifier =
-        Modifier
-          .align(Alignment.TopCenter)
-          .windowInsetsPadding(WindowInsets.statusBars)
-          .padding(horizontal = 12.dp, vertical = 8.dp),
+      modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
     ) {
-      val topGlassTint =
-        if (palette.mode == ReadingThemeMode.NIGHT_BW) Color(0xFF141414).copy(alpha = 0.76f)
-        else palette.dockSurface.copy(alpha = 0.72f)
-      LiquidGlassCard(
-        hazeState = hazeState,
-        isDark = palette.isDark,
-        shape = RoundedCornerShape(24.dp),
-        tintColor = topGlassTint,
-        batterySaverEnabled = batterySaverEnabled,
-        modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp),
-      ) {
-        Row(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          IconButton(
-            onClick = {
-              viewModel.flushReadingStatsNow()
-              onNavigateBack()
-            },
-            modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_back_button"),
-          ) {
-            Icon(
-              imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-              contentDescription = strings.returnToLibrary,
-              tint = palette.text,
-            )
-          }
-
-          Column(
-            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-          ) {
-            Text(
-              text = uiState.book?.title ?: "",
-              fontFamily = LiterataFontFamily,
-              style = MaterialTheme.typography.titleSmall,
-              fontWeight = FontWeight.SemiBold,
-              color = palette.text,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-              text = locationSummary,
-              style = MaterialTheme.typography.labelSmall,
-              color = palette.secondaryText,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-            )
-          }
-
-          IconButton(
-            onClick = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 0) },
-            modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_contents_button"),
-          ) {
-            Icon(
-              imageVector = Icons.AutoMirrored.Rounded.ListAlt,
-              contentDescription = strings.contentsTab,
-              tint = palette.text,
-            )
-          }
-
-          IconButton(
-            onClick = viewModel::toggleCurrentBookmark,
-            modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_bookmark_button"),
-          ) {
-            Icon(
-              imageVector =
-                if (uiState.isCurrentLocationBookmarked) Icons.Rounded.Bookmark
-                else Icons.Outlined.BookmarkBorder,
-              contentDescription = strings.bookmarkAction,
-              tint = if (uiState.isCurrentLocationBookmarked) palette.accent else palette.text,
-            )
-          }
-
-          val focusOrAudioActive =
-            uiState.focusTimer.isRunning ||
-              uiState.activeAmbientSound != AmbientSoundType.NONE ||
-              uiState.sleepTimer.preset != SleepTimerPreset.OFF
-          IconButton(
-            onClick = { viewModel.openSheet(ReaderSheetType.FOCUS_AUDIO) },
-            modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_focus_audio_button"),
-          ) {
-            Icon(
-              imageVector = Icons.Rounded.Headphones,
-              contentDescription = strings.focusAndAudioTitle,
-              tint = if (focusOrAudioActive) palette.accent else palette.text,
-            )
-          }
-
-          IconButton(
-            onClick = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 3) },
-            modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_search_button"),
-          ) {
-            Icon(
-              imageVector = Icons.Rounded.Search,
-              contentDescription = strings.searchTab,
-              tint = palette.text,
-            )
-          }
-
-          IconButton(
-            onClick = { viewModel.closeBookExplicitly(onNavigateBack) },
-            modifier = Modifier.minimumInteractiveComponentSize().testTag("reader_close_button"),
-          ) {
-            Icon(
-              imageVector = Icons.Rounded.Close,
-              contentDescription = strings.done,
-              tint = palette.secondaryText,
-            )
-          }
-        }
-      }
+      AtlasReaderToolbar(
+        title = uiState.book?.title ?: "",
+        progressPercent = uiState.overallProgressPercent,
+        isBookmarked = uiState.isCurrentLocationBookmarked,
+        onBack = {
+          viewModel.flushReadingStatsNow()
+          onNavigateBack()
+        },
+        onToggleBookmark = viewModel::toggleCurrentBookmark,
+        onOpenToc = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 0) },
+        onOpenSearch = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 3) },
+        onOpenTypography = { viewModel.openSheet(ReaderSheetType.TYPOGRAPHY) },
+        surfaceColor = palette.dockSurface,
+        contentColor = palette.text,
+        dividerColor = palette.dockBorder,
+      )
     }
 
     // Floating Liquid-Glass Text Selection Menu positioned ABOVE selected text
@@ -733,11 +633,23 @@ fun ReaderScreen(
           settings = uiState.settings,
           palette = palette,
           bookFormat = format,
+          readerMode = uiState.readerMode,
           onSelectTheme = viewModel::setThemeMode,
           onChangeBrightness = viewModel::setBrightnessOverride,
+          onChangeFontSize = viewModel::setFontSize,
+          onSelectLayoutMode = viewModel::setReadingLayoutMode,
+          onToggleKeepScreenOn = viewModel::setKeepScreenOn,
+          onToggleReadingRuler = viewModel::setReadingRulerEnabled,
           onTogglePaperTexture = viewModel::setPaperTextureEnabled,
           onToggleBatterySaver = viewModel::setBatterySaverModeEnabled,
           onTogglePdfThemeFilter = viewModel::setPdfThemeFilter,
+          onOpenTypography = { viewModel.openSheet(ReaderSheetType.TYPOGRAPHY) },
+          onOpenSearch = { viewModel.openSheet(ReaderSheetType.INDEX_TOOLS, initialToolsTab = 3) },
+          onToggleListenMode = {
+            val nextMode =
+              if (uiState.readerMode == ReaderMode.LISTEN) ReaderMode.READ else ReaderMode.LISTEN
+            viewModel.setReaderMode(nextMode)
+          },
           onDismiss = viewModel::closeSheet,
         )
 
@@ -776,6 +688,7 @@ fun ReaderScreen(
           onChangeReadingRulerDimAlpha = viewModel::setReadingRulerDimAlpha,
           onApplyComfortPreset = viewModel::applyComfortPreset,
           onResetComfort = viewModel::resetComfortDefaults,
+          onOpenThemeHub = { viewModel.openSheet(ReaderSheetType.THEME_BRIGHTNESS) },
           onOpenSettings = onOpenSettings,
           onDismiss = viewModel::closeSheet,
         )
@@ -1282,7 +1195,7 @@ private fun AddNoteDialog(
       }
     },
     confirmButton = {
-      val onAccent = if (palette.isDark) Color(0xFF082115) else Color.White
+      val onAccent = if (palette.isDark) Color(0xFF071630) else Color.White
       Button(
         onClick = { onSave(selectedColor, noteText) },
         colors = ButtonDefaults.buttonColors(containerColor = palette.accent, contentColor = onAccent),
@@ -1364,7 +1277,7 @@ private fun QuoteCardDialog(
       }
     },
     confirmButton = {
-      val onAccent = if (palette.isDark) Color(0xFF082115) else Color.White
+      val onAccent = if (palette.isDark) Color(0xFF071630) else Color.White
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(
           onClick = { onCopyQuote(formatted) },
@@ -1513,7 +1426,7 @@ private fun TranslateSelectionDialog(
       }
     },
     confirmButton = {
-      val onAccent = if (palette.isDark) Color(0xFF082115) else Color.White
+      val onAccent = if (palette.isDark) Color(0xFF071630) else Color.White
       if (translationState is TranslationUiState.Success) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           OutlinedButton(
@@ -1777,7 +1690,7 @@ private fun ReadingRulerOverlay(
             contentDescription = strings.readingRulerDragHint,
             tint =
               if (isDragging) {
-                if (palette.isDark) Color(0xFF082115) else Color.White
+                if (palette.isDark) Color(0xFF071630) else Color.White
               } else {
                 palette.accent
               },

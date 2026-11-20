@@ -357,17 +357,49 @@ interface AppStrings {
   val noChaptersInsightsMessage: String
   val highlightsCountLabel: (Int) -> String
   val bookmarksCountLabel: (Int) -> String
+  // v3.3 ATLAS Redesigned Reader Control Center, Typography Studio & Sectioned Settings
+  val readerSettingsTitle: String
+  val textCustomizeTitle: String
+  val textCustomizeSub: String
+  val voiceQuickLabel: String
+  val transitionsLabel: String
+  val awakeQuickLabel: String
+  val rulerQuickLabel: String
+  val textAndBackgroundTitle: String
+  val textAndBackgroundSub: String
+  val selectFontLabel: String
+  val previewLabel: String
+  val typographyPreviewSample: String
+  val alignDefaultDesc: String
+  val alignJustifyDesc: String
+  val advancedLabel: String
+  val appearanceSectionTitle: String
+  val readingComfortSectionTitle: String
+  val gesturesSectionTitle: String
+  val remindersAndWidgetsSectionTitle: String
+  val audioAndVoiceSectionTitle: String
+  val aboutAtlasSectionTitle: String
+  val reminderScheduledStatus: (String) -> String
+  // Redesigned Home Screen & Quick Shelf Widget
+  val shelfWidgetTitle: String
+  val shelfWidgetSub: String
+  val nowReadingEyebrow: String
+  val continueAction: String
+  val todayGoalShort: String
+  val studioCardSub: String
+  val catalogCardSub: String
+  val shelvesLabel: String
 }
 
 object EnglishStrings : AppStrings {
-  override val appName = "PageNest"
-  override val librarySubtitle = "Your calm, local reading shelf"
+  override val appName = "ATLAS"
+  override val librarySubtitle = "Your calm, local reading atlas"
   override val volumesCount: (Int) -> String = { n -> "$n ${if (n == 1) "volume" else "volumes"}" }
   override val importLabel = "Import"
   override val importEpubOrPdf = "Import Book"
   override val loadSamples = "Load Sample Classics (EN & FA)"
   override val emptyTitle = "Your reading shelf awaits"
-  override val emptySubtitle = "Import EPUB, PDF, TXT, Markdown, FB2, or CBZ files from your device. Books are copied into PageNest private storage so they stay available offline."
+  override val emptySubtitle = "Import EPUB, PDF, TXT, Markdown, FB2, or CBZ files from your device. Books are copied into ATLAS private storage so they stay available offline."
   override val searchLibraryHint = "Search title or author"
   override val continueReading = "Continue Reading"
   override val resumeSession = "Resume Session"
@@ -376,7 +408,7 @@ object EnglishStrings : AppStrings {
   override val matchingBooks = "Matching Books"
   override val noMatchingBooks: (String) -> String = { q -> "No books match “$q”." }
   override val removeBookTitle = "Remove book?"
-  override val removeBookBody: (String) -> String = { t -> "“$t” and its saved bookmarks and highlights will be removed from PageNest storage." }
+  override val removeBookBody: (String) -> String = { t -> "“$t” and its saved bookmarks and highlights will be removed from ATLAS storage." }
   override val remove = "Remove"
   override val cancel = "Cancel"
   override val settingsAndAbout = "Settings, Fonts & About"
@@ -518,7 +550,7 @@ object EnglishStrings : AppStrings {
   override val testReminderAction = "Send Test"
   override val reminderPermissionNeeded = "Allow notification permission to receive daily streak reminders."
   override val widgetSectionTitle = "Continue Reading Home Widget"
-  override val widgetSectionSub = "Long-press your home screen → Widgets → PageNest to pin your active book & progress."
+  override val widgetSectionSub = "Long-press your home screen → Widgets → ATLAS to pin your active book & progress."
   override val fontManagementSection = "Font Management"
   override val readerTypefaces = "Reader Typefaces"
   override val readerTypefacesSub = "Choose Persian/Latin fonts or import .ttf / .otf files"
@@ -532,18 +564,18 @@ object EnglishStrings : AppStrings {
   override val changelog = "Changelog"
   override val localStorage = "Local Storage"
   override val clearCache = "Clear Cache"
-  override val aboutMeSection = "About Me"
+  override val aboutMeSection = "About ATLAS"
   override val craftedBy = "Crafted by AmirSenpai"
-  override val aboutBio = "PageNest is a calm, local sanctuary for EPUB, PDF, TXT, Markdown, FB2 & CBZ reading in English and Persian — with zero accounts or tracking."
+  override val aboutBio = "ATLAS is a calm, local sanctuary for EPUB, PDF, TXT, Markdown, FB2, CBZ & Audiobook reading in English and Persian — with zero accounts or tracking."
   override val done = "Done"
-  override val supportAndProSection = "Support & PageNest Pro"
+  override val supportAndProSection = "Support & ATLAS Pro"
   override val tipJarTitle = "Tip Jar"
   override val tipJarSubtitle = "Support calm, ad-free indie development"
   override val tipJarMenu = "Tip Jar (Support)"
-  override val tipJarRecommendTitle = "Enjoying your reading sanctuary?"
+  override val tipJarRecommendTitle = "Enjoying reading in ATLAS?"
   override val tipJarRecommendBody: (Int) -> String = { mins ->
-    if (mins > 0) "You've spent $mins minutes reading in PageNest! If it helps your focus, consider leaving a small tip or upgrading to Pro."
-    else "If PageNest makes your daily reading calmer, consider supporting indie development or upgrading to Pro."
+    if (mins > 0) "You've spent $mins minutes reading in ATLAS! If it helps your focus, consider leaving a small tip or upgrading to Pro."
+    else "If ATLAS makes your daily reading calmer, consider supporting indie development or upgrading to Pro."
   }
   override val tipJarIranSection = "Inside Iran (Rial / Local Links)"
   override val tipJarGlobalSection = "Outside Iran (International Links)"
@@ -552,14 +584,14 @@ object EnglishStrings : AppStrings {
   override val tipJarScheduleLabel = "Tip Jar Recommendation Timing"
   override val tipJarScheduleSub = "Suggest support gently based on reading time or turn off"
   override val tipJarFixedMinutesLabel: (Int) -> String = { mins -> "Every $mins min of reading" }
-  override val proTitle = "PageNest Pro"
+  override val proTitle = "ATLAS Pro"
   override val proBadge = "PRO"
-  override val proMenu = "PageNest Pro"
-  override val proActiveTitle = "PageNest Pro Active"
-  override val proActiveSub = "Thank you for supporting PageNest! All recommendation prompts are disabled."
-  override val proHeroTitle = "Support PageNest & Unlock Pro"
+  override val proMenu = "ATLAS Pro"
+  override val proActiveTitle = "ATLAS Pro Active"
+  override val proActiveSub = "Thank you for supporting ATLAS! All recommendation prompts are disabled."
+  override val proHeroTitle = "Support ATLAS & Unlock Pro"
   override val proHeroSub = "Enjoy a distraction-free reading sanctuary forever with zero prompts and direct supporter perks."
-  override val proBenefitsTitle = "Included with PageNest Pro"
+  override val proBenefitsTitle = "Included with ATLAS Pro"
   override val proBenefitNoPrompts = "Zero tip prompts or upgrade banners across the app"
   override val proBenefitBadge = "Exclusive PRO Supporter emblem in your Library header"
   override val proBenefitSupportDev = "Directly funds Persian RTL typography, format engines & updates"
@@ -570,12 +602,12 @@ object EnglishStrings : AppStrings {
   override val proRedeemCodeHint = "Enter code (e.g. from receipt)"
   override val proRedeemAction = "Activate"
   override val proInvalidCodeMessage = "Supporter key not recognized. Check your receipt or MonetizationConfig.kt."
-  override val proUnlockedMessage = "PageNest Pro activated — thank you for your support!"
+  override val proUnlockedMessage = "ATLAS Pro activated — thank you for your support!"
   override val openLinkAction = "Open"
-  override val studioTitle = "PageNest Studio"
+  override val studioTitle = "ATLAS Studio"
   override val studioBetaBadge = "BETA"
   override val studioSubtitle = "Craft multi-chapter books offline and publish directly to your shelf"
-  override val studioMenuAction = "PageNest Studio (Beta)"
+  override val studioMenuAction = "ATLAS Studio (Beta)"
   override val newBookAction = "New Book"
   override val manuscriptTitleLabel = "Book Title"
   override val authorNameLabel = "Pen Name / Author"
@@ -586,7 +618,7 @@ object EnglishStrings : AppStrings {
   override val addChapterAction = "Chapter"
   override val publishToLibraryAction = "Publish to Library"
   override val publishingLabel = "Publishing…"
-  override val publishedSuccessLabel = "Published to your PageNest library!"
+  override val publishedSuccessLabel = "Published to your ATLAS library!"
   override val openPublishedBookAction = "Read Book"
   override val shareMarkdownAction = "Export Markdown"
   override val savedLabel = "Saved"
@@ -704,11 +736,41 @@ object EnglishStrings : AppStrings {
   override val noChaptersInsightsMessage = "No chapter structure available yet for this file."
   override val highlightsCountLabel: (Int) -> String = { n -> "$n highlights" }
   override val bookmarksCountLabel: (Int) -> String = { n -> "$n bookmarks" }
+  override val readerSettingsTitle = "Reader Control Center"
+  override val textCustomizeTitle = "Text"
+  override val textCustomizeSub = "Customize"
+  override val voiceQuickLabel = "Voice"
+  override val transitionsLabel = "Flow"
+  override val awakeQuickLabel = "Awake"
+  override val rulerQuickLabel = "Ruler"
+  override val textAndBackgroundTitle = "Text & Background"
+  override val textAndBackgroundSub = "Themes, brightness & quick controls"
+  override val selectFontLabel = "Select Font"
+  override val previewLabel = "Live Preview"
+  override val typographyPreviewSample = "So we beat on, boats against the current, borne back ceaselessly into the past. The purpose of reading is to discover meaning that endures."
+  override val alignDefaultDesc = "Natural rag aligned to the reading edge"
+  override val alignJustifyDesc = "Evenly distributes words across the line"
+  override val advancedLabel = "Advanced"
+  override val appearanceSectionTitle = "Appearance & Language"
+  override val readingComfortSectionTitle = "Reading Comfort & Behavior"
+  override val gesturesSectionTitle = "Tap Zones & Gestures"
+  override val remindersAndWidgetsSectionTitle = "Reminders & Home Widgets"
+  override val audioAndVoiceSectionTitle = "Typefaces & Voice Engine"
+  override val aboutAtlasSectionTitle = "Support, Storage & About ATLAS"
+  override val reminderScheduledStatus: (String) -> String = { time -> "Scheduled daily at $time" }
+  override val shelfWidgetTitle = "Quick Shelf & Quotes Widget"
+  override val shelfWidgetSub = "3 recent book covers with direct launch and your latest highlight"
+  override val nowReadingEyebrow = "NOW READING"
+  override val continueAction = "Continue"
+  override val todayGoalShort = "Today's Goal"
+  override val studioCardSub = "Write & publish"
+  override val catalogCardSub = "Free classics"
+  override val shelvesLabel = "Shelves"
 }
 
 object PersianStrings : AppStrings {
-  override val appName = "پیج‌نست"
-  override val librarySubtitle = "قفسه آرام مطالعه"
+  override val appName = "اطلس"
+  override val librarySubtitle = "کتابخانه آرام و شخصی شما"
   override val volumesCount: (Int) -> String = { n -> "$n کتاب" }
   override val importLabel = "افزودن"
   override val importEpubOrPdf = "افزودن کتاب"
@@ -865,7 +927,7 @@ object PersianStrings : AppStrings {
   override val testReminderAction = "ارسال آزمایشی"
   override val reminderPermissionNeeded = "برای دریافت یادآورهای روزانه، مجوز اعلان را فعال کنید."
   override val widgetSectionTitle = "ویجت ادامه مطالعه در صفحه اصلی"
-  override val widgetSectionSub = "صفحه اصلی گوشی را لمس طولانی کنید ← ویجت‌ها ← پیج‌نست تا آخرین کتاب روی صفحه قرار گیرد."
+  override val widgetSectionSub = "صفحه اصلی گوشی را لمس طولانی کنید ← ویجت‌ها ← اطلس تا آخرین کتاب روی صفحه قرار گیرد."
   override val fontManagementSection = "مدیریت فونت‌ها"
   override val readerTypefaces = "فونت‌های مطالعه"
   override val readerTypefacesSub = "انتخاب فونت فارسی/لاتین یا افزودن فایل .ttf و .otf"
@@ -879,18 +941,18 @@ object PersianStrings : AppStrings {
   override val changelog = "تغییرات نسخه"
   override val localStorage = "حافظه داخلی"
   override val clearCache = "پاکسازی کش"
-  override val aboutMeSection = "درباره من"
+  override val aboutMeSection = "درباره اطلس"
   override val craftedBy = "ساخته شده توسط AmirSenpai"
-  override val aboutBio = "پیج‌نست یک کتابخوان آرام و محلی برای فایل‌های EPUB، PDF، TXT، Markdown، FB2 و CBZ با پشتیبانی کامل از فارسی و انگلیسی است."
+  override val aboutBio = "اطلس یک کتابخوان آرام و محلی برای فایل‌های EPUB، PDF، TXT، Markdown، FB2، CBZ و کتاب‌های صوتی با پشتیبانی کامل از فارسی و انگلیسی و بدون ردیابی است."
   override val done = "بستن"
   override val supportAndProSection = "حمایت و نسخه حرفه‌ای (Pro)"
   override val tipJarTitle = "صندوق حمایت (Tip Jar)"
-  override val tipJarSubtitle = "حمایت داوطلبانه از توسعه پیج‌نست"
+  override val tipJarSubtitle = "حمایت داوطلبانه از توسعه اطلس"
   override val tipJarMenu = "حمایت از سازنده (Tip Jar)"
-  override val tipJarRecommendTitle = "از مطالعه در پیج‌نست لذت می‌برید؟"
+  override val tipJarRecommendTitle = "از مطالعه در اطلس لذت می‌برید؟"
   override val tipJarRecommendBody: (Int) -> String = { mins ->
-    if (mins > 0) "تاکنون $mins دقیقه در پیج‌نست مطالعه کرده‌اید! اگر این برنامه برایتان مفید بوده، می‌توانید با یک حمایت کوچک یا ارتقا به نسخه Pro از ادامه توسعه حمایت کنید."
-    else "اگر پیج‌نست فضای مطالعه‌تان را آرام‌تر کرده، می‌توانید از توسعه مستقل آن حمایت کنید."
+    if (mins > 0) "تاکنون $mins دقیقه در اطلس مطالعه کرده‌اید! اگر این برنامه برایتان مفید بوده، می‌توانید با یک حمایت کوچک یا ارتقا به نسخه Pro از ادامه توسعه حمایت کنید."
+    else "اگر اطلس فضای مطالعه‌تان را آرام‌تر کرده، می‌توانید از توسعه مستقل آن حمایت کنید."
   }
   override val tipJarIranSection = "داخل ایران (درگاه ریالی و لینک‌های داخلی)"
   override val tipJarGlobalSection = "خارج از ایران (لینک‌های بین‌المللی)"
@@ -899,12 +961,12 @@ object PersianStrings : AppStrings {
   override val tipJarScheduleLabel = "زمان‌بندی پیشنهاد حمایت"
   override val tipJarScheduleSub = "پیشنهاد محترمانه بر اساس زمان مطالعه تصادفی یا ثابت"
   override val tipJarFixedMinutesLabel: (Int) -> String = { mins -> "هر $mins دقیقه مطالعه" }
-  override val proTitle = "نسخه حرفه‌ای پیج‌نست (Pro)"
+  override val proTitle = "نسخه حرفه‌ای اطلس (Pro)"
   override val proBadge = "PRO"
-  override val proMenu = "پیج‌نست Pro"
-  override val proActiveTitle = "نسخه پیج‌نست Pro فعال است"
-  override val proActiveSub = "از حمایت ارزشمند شما سپاسگزاریم! تمام پیشنهادها و پیام‌های تبلیغاتی غیرفعال هستند."
-  override val proHeroTitle = "حمایت از پیج‌نست و فعال‌سازی Pro"
+  override val proMenu = "اطلس Pro"
+  override val proActiveTitle = "نسخه اطلس Pro فعال است"
+  override val proActiveSub = "از حمایت ارزشمند شما سپاسگزاریم! تمام پیشنهادها و پیام‌های حمایتی غیرفعال هستند."
+  override val proHeroTitle = "حمایت از اطلس و فعال‌سازی Pro"
   override val proHeroSub = "تجربه‌ای کاملاً آرام و بدون هیچ پیام پیشنهادی همراه با نشان ویژه حامیان."
   override val proBenefitsTitle = "مزایای نسخه حرفه‌ای"
   override val proBenefitNoPrompts = "حذف کامل تمام پیام‌های پیشنهاد حمایت در برنامه"
@@ -917,9 +979,9 @@ object PersianStrings : AppStrings {
   override val proRedeemCodeHint = "کد دریافتی را وارد کنید"
   override val proRedeemAction = "فعال‌سازی"
   override val proInvalidCodeMessage = "کد واردشده معتبر نیست. کد رسید یا تنظیمات فایل MonetizationConfig را بررسی کنید."
-  override val proUnlockedMessage = "نسخه پیج‌نست Pro فعال شد — سپاس از حمایت شما!"
+  override val proUnlockedMessage = "نسخه اطلس Pro فعال شد — سپاس از حمایت شما!"
   override val openLinkAction = "باز کردن"
-  override val studioTitle = "استودیو نویسندگی پیج‌نست"
+  override val studioTitle = "استودیو نویسندگی اطلس"
   override val studioBetaBadge = "آزمایشی"
   override val studioSubtitle = "کتاب‌های چندفصلی بنویسید و با یک لمس در کتابخانه خود منتشر کنید"
   override val studioMenuAction = "استودیو نویسندگی (بتا)"
@@ -933,7 +995,7 @@ object PersianStrings : AppStrings {
   override val addChapterAction = "فصل جدید"
   override val publishToLibraryAction = "انتشار در کتابخانه"
   override val publishingLabel = "در حال انتشار…"
-  override val publishedSuccessLabel = "کتاب با موفقیت در کتابخانه پیج‌نست منتشر شد!"
+  override val publishedSuccessLabel = "کتاب با موفقیت در کتابخانه اطلس منتشر شد!"
   override val openPublishedBookAction = "مطالعه کتاب"
   override val shareMarkdownAction = "خروجی مارک‌داون"
   override val savedLabel = "ذخیره شد"
@@ -1050,6 +1112,36 @@ object PersianStrings : AppStrings {
   override val noChaptersInsightsMessage = "ساختار فصلی برای این فایل در دسترس نیست."
   override val highlightsCountLabel: (Int) -> String = { n -> "$n هایلایت" }
   override val bookmarksCountLabel: (Int) -> String = { n -> "$n نشانک" }
+  override val readerSettingsTitle = "مرکز کنترل مطالعه"
+  override val textCustomizeTitle = "متن و قلم"
+  override val textCustomizeSub = "شخصی‌سازی"
+  override val voiceQuickLabel = "صدا"
+  override val transitionsLabel = "ورق‌زدن"
+  override val awakeQuickLabel = "بیدار"
+  override val rulerQuickLabel = "خط‌کش"
+  override val textAndBackgroundTitle = "متن و پس‌زمینه"
+  override val textAndBackgroundSub = "پوسته، روشنایی و کنترل‌های سریع"
+  override val selectFontLabel = "انتخاب قلم"
+  override val previewLabel = "پیش‌نمایش زنده"
+  override val typographyPreviewSample = "هدف از خواندن تنها دیدن واژه‌ها نیست، بلکه کشف معنایی است که در دل سطرها ماندگار می‌شود و آرامش می‌آورد."
+  override val alignDefaultDesc = "چیدمان طبیعی سطرها متناسب با جهت متن"
+  override val alignJustifyDesc = "توزیع یکنواخت واژه‌ها در سراسر عرض صفحه"
+  override val advancedLabel = "پیشرفته"
+  override val appearanceSectionTitle = "ظاهر و زبان برنامه"
+  override val readingComfortSectionTitle = "راحتی و رفتار مطالعه"
+  override val gesturesSectionTitle = "مناطق لمس و ژست‌ها"
+  override val remindersAndWidgetsSectionTitle = "یادآورها و ویجت‌های صفحه اصلی"
+  override val audioAndVoiceSectionTitle = "فونت‌ها و موتور خوانش صوتی"
+  override val aboutAtlasSectionTitle = "حمایت، حافظه و درباره اطلس"
+  override val reminderScheduledStatus: (String) -> String = { time -> "زمان‌بندی روزانه برای ساعت $time" }
+  override val shelfWidgetTitle = "ویجت قفسه سریع و نقل‌قول"
+  override val shelfWidgetSub = "۳ کتاب اخیر با باز شدن مستقیم و آخرین جمله هایلایت‌شده"
+  override val nowReadingEyebrow = "در حال مطالعه"
+  override val continueAction = "ادامه مطالعه"
+  override val todayGoalShort = "هدف امروز"
+  override val studioCardSub = "نویسندگی و انتشار"
+  override val catalogCardSub = "کتاب‌های رایگان"
+  override val shelvesLabel = "قفسه‌ها"
 }
 
 fun AppLanguage.strings(): AppStrings =

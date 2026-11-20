@@ -65,6 +65,9 @@ interface PageNestDao {
   @Query("SELECT * FROM highlights WHERE bookId = :bookId ORDER BY chapterOrPageIndex ASC, createdAt DESC")
   fun observeHighlights(bookId: String): Flow<List<HighlightEntity>>
 
+  @Query("SELECT * FROM highlights ORDER BY createdAt DESC LIMIT 1")
+  suspend fun getLatestHighlight(): HighlightEntity?
+
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertHighlight(highlight: HighlightEntity)
 

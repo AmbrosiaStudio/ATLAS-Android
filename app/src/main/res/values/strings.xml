@@ -1,11 +1,11 @@
 <resources>
-    <string name="app_name">PageNest</string>
+    <string name="app_name">ATLAS</string>
     <string name="library_title">Library</string>
-    <string name="library_subtitle">Your private reading sanctuary</string>
+    <string name="library_subtitle">Your world of knowledge.</string>
     <string name="import_book">Import Book</string>
     <string name="import_epub_or_pdf">Import EPUB or PDF</string>
     <string name="empty_library_title">Your reading shelf awaits</string>
-    <string name="empty_library_subtitle">Import EPUB or PDF files from your device. Books are copied into PageNest private storage so they stay available offline.</string>
+    <string name="empty_library_subtitle">Import EPUB, PDF, TXT, Markdown, FB2, or CBZ files from your device. Documents stay stored privately offline inside ATLAS.</string>
     <string name="search_library_hint">Search title or author</string>
     <string name="continue_reading">Continue Reading</string>
     <string name="recent_books">Recently Opened</string>
@@ -23,7 +23,17 @@
     <string name="bookmarks_tab">Bookmarks</string>
     <string name="highlights_tab">Highlights</string>
     <string name="search_tab">Search</string>
-    <string name="widget_continue_description">Resume your current book and view today\'s reading goal.</string>
-    <string name="widget_stats_description">View daily reading time, total pages read, streak, and 7-day trend chart.</string>
-    <string name="widget_streak_description">Compact 1×1 flame badge showing your active daily reading streak.</string>
+
+    <!-- ATLAS Home Screen Widget Names & Descriptions -->
+    <string name="widget_continue_name">ATLAS — Continue Reading</string>
+    <string name="widget_continue_description">Minimal editorial card showing your active book, daily goal progress, and instant resume.</string>
+
+    <string name="widget_stats_name">ATLAS — Reading Activity</string>
+    <string name="widget_stats_description">Monochrome reading dashboard with daily time, pages read, active streak, and 7-day cadence chart.</string>
+
+    <string name="widget_streak_name">ATLAS — Reading Streak</string>
+    <string name="widget_streak_description">Compact 1×1 Swiss badge tracking your active daily reading streak.</string>
+
+    <string name="widget_shelf_name">ATLAS — Quick Shelf</string>
+    <string name="widget_shelf_description">Editorial 3-volume bookshelf with reading progress and your latest saved highlight quote.</string>
 </resources>

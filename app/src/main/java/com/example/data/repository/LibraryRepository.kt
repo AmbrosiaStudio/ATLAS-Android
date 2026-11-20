@@ -47,6 +47,13 @@ class LibraryRepository(
       dao.insertShelf(ShelfEntity(name = clean))
     }
 
+  suspend fun renameShelf(shelfId: Long, newName: String) =
+    withContext(Dispatchers.IO) {
+      val clean = newName.trim()
+      if (clean.isBlank()) return@withContext
+      dao.renameShelf(shelfId, clean)
+    }
+
   suspend fun deleteShelf(shelfId: Long) =
     withContext(Dispatchers.IO) {
       dao.deleteShelfById(shelfId)

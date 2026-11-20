@@ -26,9 +26,11 @@ import kotlinx.coroutines.launch
 
 data class LibraryUiState(
   val books: List<BookEntity> = emptyList(),
+  val allBooks: List<BookEntity> = emptyList(),
   val totalLibraryCount: Int = 0,
   val recentBooks: List<BookEntity> = emptyList(),
   val continueBook: BookEntity? = null,
+  val activeStreakDays: Int = 0,
   val lastSessionBookId: String? = null,
   val shelves: List<ShelfEntity> = emptyList(),
   val bookShelfMap: Map<String, Set<Long>> = emptyMap(),
@@ -85,6 +87,13 @@ class LibraryViewModel(
     val info: String?,
   )
 
+  private data class AuxTuple(
+    val lastId: String?,
+    val filters: FilterState,
+    val status: StatusTuple,
+    val streakDays: Int,
+  )
+
   val uiState: StateFlow<LibraryUiState> =
     combine(
       libraryRepository.booksFlow,
@@ -95,11 +104,17 @@ class LibraryViewModel(
         readerRepository.lastOpenedBookIdFlow,
         combine(searchQuery, statusFilter, selectedShelfId) { q, st, sh -> FilterState(q, st, sh) },
         combine(isImporting, errorMessage, infoMessage) { imp, err, info -> StatusTuple(imp, err, info) },
-      ) { lastId, filters, status -> Triple(lastId, filters, status) },
+        readerRepository.observeAllDailyStats(),
+      ) { lastId, filters, status, dailyStats ->
+        val statsByDate = dailyStats.associateBy { it.dateKey }
+        val streak = com.example.model.StreakCalculator.computeActiveStreak(statsByDate)
+        AuxTuple(lastId, filters, status, streak)
+      },
     ) { allBooks, shelves, shelfRefs, settings, aux ->
-      val lastSessionId = aux.first
-      val filters = aux.second
-      val status = aux.third
+      val lastSessionId = aux.lastId
+      val filters = aux.filters
+      val status = aux.status
+      val streakDays = aux.streakDays
 
       val shelfMap = mutableMapOf<String, MutableSet<Long>>()
       shelfRefs.forEach { ref ->
@@ -165,9 +180,11 @@ class LibraryViewModel(
 
       LibraryUiState(
         books = sorted,
+        allBooks = allBooks,
         totalLibraryCount = allBooks.size,
         recentBooks = recent,
         continueBook = continueBook,
+        activeStreakDays = streakDays,
         lastSessionBookId = lastSessionId?.takeIf { id -> allBooks.any { it.id == id } },
         shelves = shelves,
         bookShelfMap = shelfMap,
@@ -209,8 +226,17 @@ class LibraryViewModel(
     viewModelScope.launch {
       val id = libraryRepository.createShelf(clean)
       if (id != null && id > 0L) {
-        infoMessage.value = "Created shelf \"$clean\""
+        infoMessage.value = "Created collection \"$clean\""
       }
+    }
+  }
+
+  fun renameShelf(shelfId: Long, newName: String) {
+    val clean = newName.trim()
+    if (clean.isBlank()) return
+    viewModelScope.launch {
+      libraryRepository.renameShelf(shelfId, clean)
+      infoMessage.value = "Renamed collection to \"$clean\""
     }
   }
 
@@ -220,7 +246,13 @@ class LibraryViewModel(
         selectedShelfId.value = null
       }
       libraryRepository.deleteShelf(shelf.id)
-      infoMessage.value = "Removed shelf \"${shelf.name}\""
+      infoMessage.value = "Removed collection \"${shelf.name}\""
+    }
+  }
+
+  fun setSwissUiPreviewEnabled(enabled: Boolean) {
+    viewModelScope.launch {
+      readerRepository.updateSettings { it.copy(swissUiPreviewEnabled = enabled) }
     }
   }
 
@@ -406,7 +438,7 @@ class LibraryViewModel(
       }
       infoMessage.value =
         if (isFa) "از حمایت ارزشمند شما سپاسگزاریم!"
-        else "Thank you so much for supporting PageNest!"
+        else "Thank you so much for supporting ATLAS!"
     }
   }
 
@@ -422,8 +454,8 @@ class LibraryViewModel(
         )
       }
       infoMessage.value =
-        if (isFa) "نسخه پیج‌نست Pro فعال شد — سپاس از حمایت شما!"
-        else "PageNest Pro activated — thank you for your support!"
+        if (isFa) "نسخه اطلس Pro فعال شد — سپاس از حمایت شما!"
+        else "ATLAS Pro activated — thank you for your support!"
     }
     return true
   }

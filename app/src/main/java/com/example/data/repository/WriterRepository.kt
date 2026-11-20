@@ -36,7 +36,7 @@ class WriterRepository(
       val now = System.currentTimeMillis()
       val bookId = UUID.randomUUID().toString()
       val cleanTitle = title.trim().ifBlank { if (isRtl) "کتاب بی‌نام" else "Untitled Manuscript" }
-      val cleanAuthor = author.trim().ifBlank { if (isRtl) "نویسنده پیج‌نست" else "PageNest Author" }
+      val cleanAuthor = author.trim().ifBlank { if (isRtl) "نویسنده اطلس" else "ATLAS Author" }
       val book =
         WriterBookEntity(
           id = bookId,

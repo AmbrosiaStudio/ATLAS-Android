@@ -1295,10 +1295,10 @@ private fun BookInfoCoverThumbnail(
   } else {
     val clothColors =
       listOf(
-        Color(0xFF2D6A4F),
-        Color(0xFF7D4838),
-        Color(0xFF295264),
-        Color(0xFF5D5342),
+        Color(0xFF111111),
+        Color(0xFF242424),
+        Color(0xFF363636),
+        Color(0xFF1C1C1C),
       )
     val clothColor = clothColors[abs(book.title.hashCode()) % clothColors.size]
     Box(

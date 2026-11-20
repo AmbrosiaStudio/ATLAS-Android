@@ -32,7 +32,7 @@ interface TtsMediaCallbacks {
  */
 object TtsMediaBridge {
   @Volatile var callbacks: TtsMediaCallbacks? = null
-  @Volatile var bookTitle: String = "PageNest"
+  @Volatile var bookTitle: String = "ATLAS"
   @Volatile var chapterTitle: String = "Listen Mode"
   @Volatile var isPlaying: Boolean = false
   @Volatile var bookId: String? = null
@@ -52,7 +52,7 @@ object TtsMediaBridge {
     playbackSpeed: Float = 1.0f,
   ) {
     this.bookId = bookId
-    this.bookTitle = bookTitle.ifBlank { "PageNest" }
+    this.bookTitle = bookTitle.ifBlank { "ATLAS" }
     this.chapterTitle = chapterTitle.ifBlank { "Listen Mode" }
     this.isPlaying = isPlaying
     this.durationMs = durationMs.coerceAtLeast(0L)
@@ -93,7 +93,7 @@ class TtsPlaybackService : Service() {
     super.onCreate()
     ensureNotificationChannel()
     mediaSession =
-      MediaSession(this, "PageNestListenSession").apply {
+      MediaSession(this, "AtlasListenSession").apply {
         setCallback(
           object : MediaSession.Callback() {
             override fun onPlay() {
@@ -288,7 +288,7 @@ class TtsPlaybackService : Service() {
             "Read Aloud Playback",
             NotificationManager.IMPORTANCE_LOW,
           ).apply {
-            description = "Lock-screen and headset controls for PageNest Listen Mode"
+            description = "Lock-screen and headset controls for ATLAS Listen Mode"
             setShowBadge(false)
           }
         manager?.createNotificationChannel(channel)
@@ -319,13 +319,13 @@ class TtsPlaybackService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   companion object {
-    const val CHANNEL_ID = "pagenest_listen_playback"
+    const val CHANNEL_ID = "atlas_listen_playback"
     const val NOTIFICATION_ID = 3201
-    const val ACTION_SYNC = "ir.pagenest.mrambrosia.action.TTS_SYNC"
-    const val ACTION_PLAY = "ir.pagenest.mrambrosia.action.TTS_PLAY"
-    const val ACTION_PAUSE = "ir.pagenest.mrambrosia.action.TTS_PAUSE"
-    const val ACTION_NEXT = "ir.pagenest.mrambrosia.action.TTS_NEXT"
-    const val ACTION_PREV = "ir.pagenest.mrambrosia.action.TTS_PREV"
-    const val ACTION_STOP = "ir.pagenest.mrambrosia.action.TTS_STOP"
+    const val ACTION_SYNC = "atlas.mrmabrosia.ir.action.TTS_SYNC"
+    const val ACTION_PLAY = "atlas.mrmabrosia.ir.action.TTS_PLAY"
+    const val ACTION_PAUSE = "atlas.mrmabrosia.ir.action.TTS_PAUSE"
+    const val ACTION_NEXT = "atlas.mrmabrosia.ir.action.TTS_NEXT"
+    const val ACTION_PREV = "atlas.mrmabrosia.ir.action.TTS_PREV"
+    const val ACTION_STOP = "atlas.mrmabrosia.ir.action.TTS_STOP"
   }
 }

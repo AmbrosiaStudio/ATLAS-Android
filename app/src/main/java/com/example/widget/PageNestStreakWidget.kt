@@ -47,6 +47,7 @@ private data class StreakWidgetData(
   val streakDays: Int,
   val activeToday: Boolean,
   val isPersian: Boolean,
+  val isDark: Boolean,
 )
 
 class PageNestStreakWidget : GlanceAppWidget() {
@@ -83,6 +84,7 @@ class PageNestStreakWidget : GlanceAppWidget() {
           streakDays = streak,
           activeToday = reconciledTodaySec >= 60 || todayPages > 0,
           isPersian = settings.appLanguage == AppLanguage.PERSIAN,
+          isDark = settings.themeMode.isDark,
         )
       }
 
@@ -105,31 +107,54 @@ private fun StreakWidgetContent(
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
 
+  // Inverted high-contrast Swiss badge when today's streak is active
+  val inverted = data.activeToday && !data.isDark
   val bgColor =
-    if (data.activeToday) ColorProvider(Color(0xFFFFF4EC))
-    else ColorProvider(Color(0xFFFAF7F2))
+    when {
+      inverted -> ColorProvider(Color(0xFF111111))
+      data.isDark && data.activeToday -> ColorProvider(Color(0xFFF5F5F2))
+      data.isDark -> ColorProvider(Color(0xFF111111))
+      else -> ColorProvider(Color(0xFFF5F5F2))
+    }
   val numberColor =
-    if (data.activeToday) ColorProvider(Color(0xFFC84B11))
-    else ColorProvider(Color(0xFF2D6A4F))
-  val captionColor = ColorProvider(Color(0xFF6B655B))
+    when {
+      inverted -> ColorProvider(Color(0xFFF5F5F2))
+      data.isDark && data.activeToday -> ColorProvider(Color(0xFF111111))
+      data.isDark -> ColorProvider(Color(0xFFF5F5F2))
+      else -> ColorProvider(Color(0xFF111111))
+    }
+  val captionColor =
+    when {
+      inverted -> ColorProvider(Color(0xFF999999))
+      data.isDark && data.activeToday -> ColorProvider(Color(0xFF777777))
+      data.isDark -> ColorProvider(Color(0xFF999999))
+      else -> ColorProvider(Color(0xFF777777))
+    }
+  val symbolRes =
+    when {
+      inverted -> R.drawable.ic_atlas_symbol_widget_dark
+      data.isDark && data.activeToday -> R.drawable.ic_atlas_symbol_widget
+      data.isDark -> R.drawable.ic_atlas_symbol_widget_dark
+      else -> R.drawable.ic_atlas_symbol_widget
+    }
 
   Column(
     modifier =
       GlanceModifier
         .fillMaxSize()
         .background(bgColor)
-        .cornerRadius(20.dp)
+        .cornerRadius(14.dp)
         .clickable(actionStartActivity(launchIntent))
         .padding(6.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Image(
-      provider = ImageProvider(R.drawable.ic_streak_flame),
-      contentDescription = "Reading streak flame",
-      modifier = GlanceModifier.size(28.dp),
+      provider = ImageProvider(symbolRes),
+      contentDescription = "ATLAS reading streak",
+      modifier = GlanceModifier.size(20.dp),
     )
-    Spacer(modifier = GlanceModifier.height(1.dp))
+    Spacer(modifier = GlanceModifier.height(2.dp))
     Text(
       text = "${data.streakDays}",
       style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = numberColor),

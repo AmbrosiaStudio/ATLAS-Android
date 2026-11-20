@@ -64,6 +64,7 @@ private data class StatsWidgetData(
   val booksCount: Int,
   val last7Days: List<StatsWidgetDayBar>,
   val isPersian: Boolean,
+  val isDark: Boolean,
 )
 
 class PageNestStatsWidget : GlanceAppWidget() {
@@ -117,7 +118,7 @@ class PageNestStatsWidget : GlanceAppWidget() {
             val key = keyFormatter.format(cal.time)
             val entry = statsByDate[key]
             val mins = ((entry?.readingSeconds ?: 0) / 60)
-            val label = shortDayFormatter.format(cal.time).take(2)
+            val label = shortDayFormatter.format(cal.time).take(1)
             val bar =
               StatsWidgetDayBar(
                 label = label,
@@ -139,6 +140,7 @@ class PageNestStatsWidget : GlanceAppWidget() {
           booksCount = books.size,
           last7Days = bars,
           isPersian = isFa,
+          isDark = settings.themeMode.isDark,
         )
       }
 
@@ -161,15 +163,15 @@ private fun StatsWidgetContent(
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
 
-  val bgColor = ColorProvider(Color(0xFFFAF7F2))
-  val cardSurface = ColorProvider(Color(0xFFFFFFFF))
-  val inkColor = ColorProvider(Color(0xFF1E1C18))
-  val mutedColor = ColorProvider(Color(0xFF6B655B))
-  val accentColor = ColorProvider(Color(0xFF2D6A4F))
-  val softGreen = ColorProvider(Color(0xFF74C69D))
-  val trackColor = ColorProvider(Color(0xFFE7E2D8))
-  val flameTintBg = ColorProvider(Color(0xFFFFEFE6))
-  val flameInk = ColorProvider(Color(0xFFC84B11))
+  val bgColor = ColorProvider(if (data.isDark) Color(0xFF111111) else Color(0xFFF5F5F2))
+  val cardSurface = ColorProvider(if (data.isDark) Color(0xFF1B1B1B) else Color(0xFFFFFFFF))
+  val pillBg = ColorProvider(if (data.isDark) Color(0xFF242424) else Color(red = 0xEE, green = 0xEE, blue = 0xEB))
+  val inkColor = ColorProvider(if (data.isDark) Color(0xFFF5F5F2) else Color(0xFF111111))
+  val mutedColor = ColorProvider(if (data.isDark) Color(0xFF999999) else Color(0xFF777777))
+  val midBarColor = ColorProvider(if (data.isDark) Color(0xFF888888) else Color(0xFF777777))
+  val emptyTrackColor = ColorProvider(if (data.isDark) Color(0xFF303030) else Color(0xFFE6E6E2))
+  val symbolRes = if (data.isDark) R.drawable.ic_atlas_symbol_widget_dark else R.drawable.ic_atlas_symbol_widget
+  val flameRes = if (data.isDark) R.drawable.ic_streak_flame_dark else R.drawable.ic_streak_flame
 
   val totalHours = data.allTimeMinutes / 60
   val remMins = data.allTimeMinutes % 60
@@ -187,38 +189,44 @@ private fun StatsWidgetContent(
       GlanceModifier
         .fillMaxSize()
         .background(bgColor)
-        .cornerRadius(20.dp)
+        .cornerRadius(14.dp)
         .clickable(actionStartActivity(launchIntent))
         .padding(12.dp),
   ) {
-    // Header Row: Title + Streak Badge
+    // Editorial Header: ATLAS Symbol + Title + Streak Pill
     Row(
       modifier = GlanceModifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
     ) {
+      Image(
+        provider = ImageProvider(symbolRes),
+        contentDescription = "ATLAS",
+        modifier = GlanceModifier.size(14.dp),
+      )
+      Spacer(modifier = GlanceModifier.width(6.dp))
       Text(
-        text = if (data.isPersian) "آمار مطالعه پیج‌نست" else "PageNest Statistics",
-        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accentColor),
+        text = if (data.isPersian) "فعالیت مطالعه اطلس" else "ATLAS ACTIVITY",
+        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = inkColor),
         modifier = GlanceModifier.defaultWeight(),
         maxLines = 1,
       )
       Box(
         modifier =
           GlanceModifier
-            .background(flameTintBg)
-            .cornerRadius(10.dp)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .background(pillBg)
+            .cornerRadius(4.dp)
+            .padding(horizontal = 7.dp, vertical = 2.dp),
       ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Image(
-            provider = ImageProvider(R.drawable.ic_streak_flame),
+            provider = ImageProvider(flameRes),
             contentDescription = null,
-            modifier = GlanceModifier.size(13.dp),
+            modifier = GlanceModifier.size(11.dp),
           )
           Spacer(modifier = GlanceModifier.width(3.dp))
           Text(
             text = if (data.isPersian) "${data.streakDays} روز" else "${data.streakDays}d",
-            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = flameInk),
+            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = inkColor),
           )
         }
       }
@@ -226,7 +234,7 @@ private fun StatsWidgetContent(
 
     Spacer(modifier = GlanceModifier.height(8.dp))
 
-    // Key Metrics Row
+    // 3 Clean Monochrome Metric Cells
     Row(
       modifier = GlanceModifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
@@ -239,7 +247,6 @@ private fun StatsWidgetContent(
         surfaceColor = cardSurface,
         inkColor = inkColor,
         mutedColor = mutedColor,
-        accentColor = accentColor,
         modifier = GlanceModifier.defaultWeight(),
       )
       Spacer(modifier = GlanceModifier.width(6.dp))
@@ -249,7 +256,6 @@ private fun StatsWidgetContent(
         surfaceColor = cardSurface,
         inkColor = inkColor,
         mutedColor = mutedColor,
-        accentColor = accentColor,
         modifier = GlanceModifier.defaultWeight(),
       )
       Spacer(modifier = GlanceModifier.width(6.dp))
@@ -259,33 +265,32 @@ private fun StatsWidgetContent(
         surfaceColor = cardSurface,
         inkColor = inkColor,
         mutedColor = mutedColor,
-        accentColor = accentColor,
         modifier = GlanceModifier.defaultWeight(),
       )
     }
 
     Spacer(modifier = GlanceModifier.height(8.dp))
 
-    // 7-Day Activity Bar Chart
+    // 7-Day Architectural Bar Chart
     Row(
       modifier =
         GlanceModifier
           .fillMaxWidth()
           .defaultWeight()
           .background(cardSurface)
-          .cornerRadius(12.dp)
+          .cornerRadius(6.dp)
           .padding(horizontal = 8.dp, vertical = 6.dp),
       verticalAlignment = Alignment.Bottom,
     ) {
       data.last7Days.forEach { bar ->
         val barHeightDp =
-          if (bar.minutes <= 0) 3.dp
+          if (bar.minutes <= 0) 2.dp
           else ((bar.minutes.toFloat() / maxBarMins.toFloat()).coerceIn(0.15f, 1f) * 26f).dp
         val barColor =
           when {
-            bar.goalMet -> accentColor
-            bar.minutes > 0 -> softGreen
-            else -> trackColor
+            bar.goalMet -> inkColor
+            bar.minutes > 0 -> midBarColor
+            else -> emptyTrackColor
           }
         Column(
           modifier = GlanceModifier.defaultWeight(),
@@ -295,10 +300,10 @@ private fun StatsWidgetContent(
           Box(
             modifier =
               GlanceModifier
-                .width(12.dp)
+                .width(10.dp)
                 .height(barHeightDp)
                 .background(barColor)
-                .cornerRadius(4.dp),
+                .cornerRadius(2.dp),
           ) {}
           Spacer(modifier = GlanceModifier.height(3.dp))
           Text(
@@ -307,7 +312,7 @@ private fun StatsWidgetContent(
               TextStyle(
                 fontSize = 9.sp,
                 fontWeight = if (bar.isToday) FontWeight.Bold else FontWeight.Normal,
-                color = if (bar.isToday) accentColor else mutedColor,
+                color = if (bar.isToday) inkColor else mutedColor,
               ),
             maxLines = 1,
           )
@@ -324,20 +329,19 @@ private fun StatMiniCell(
   surfaceColor: ColorProvider,
   inkColor: ColorProvider,
   mutedColor: ColorProvider,
-  accentColor: ColorProvider,
   modifier: GlanceModifier = GlanceModifier,
 ) {
   Column(
     modifier =
       modifier
         .background(surfaceColor)
-        .cornerRadius(12.dp)
-        .padding(horizontal = 8.dp, vertical = 6.dp),
+        .cornerRadius(6.dp)
+        .padding(horizontal = 6.dp, vertical = 6.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     Text(
       text = value,
-      style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = accentColor),
+      style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = inkColor),
       maxLines = 1,
     )
     Text(

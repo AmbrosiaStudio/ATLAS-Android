@@ -243,7 +243,7 @@ fun SignatureBottomDockOverlay(
                     }
                     Spacer(modifier = Modifier.width(4.dp))
                     val ttsPlayBg = if (isNightBw) Color.White else palette.accent
-                    val ttsPlayFg = if (palette.isDark) Color(0xFF0A140E) else Color.White
+                    val ttsPlayFg = if (palette.isDark) Color(0xFF071630) else Color.White
                     Surface(
                       shape = CircleShape,
                       color = ttsPlayBg,
@@ -687,40 +687,15 @@ private fun LiquidGlassPillContainer(
       )
     }
 
+  val swissBorder = if (isDark) Color(0xFF303030) else Color(0xFFE6E6E2)
+  val swissSurface = tintColor.copy(alpha = if (batterySaverEnabled) 0.98f else 0.96f)
+
   Box(
     modifier =
       modifier
-        .then(
-          if (batterySaverEnabled) {
-            Modifier
-          } else {
-            Modifier.shadow(
-              elevation = if (isDark) 6.dp else 8.dp,
-              shape = shape,
-              ambientColor = Color.Black.copy(alpha = if (isDark) 0.35f else 0.14f),
-              spotColor = Color.Black.copy(alpha = if (isDark) 0.35f else 0.14f),
-            )
-          }
-        )
         .clip(shape)
-        .then(
-          if (batterySaverEnabled) {
-            Modifier.background(tintColor.copy(alpha = 0.94f))
-          } else {
-            Modifier
-              .hazeEffect(
-                state = hazeState,
-                style =
-                  HazeStyle(
-                    backgroundColor = tintColor,
-                    tint = HazeTint(tintColor),
-                    blurRadius = 8.dp,
-                  ),
-              )
-              .background(specularSheen)
-          }
-        )
-        .border(BorderStroke(0.95.dp, rimBrush), shape)
+        .background(swissSurface)
+        .border(BorderStroke(1.dp, swissBorder), shape)
   ) {
     content()
   }

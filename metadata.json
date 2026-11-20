@@ -1,6 +1,6 @@
 {
-  "name": "PageNest",
-  "description": "Minimalist native Android EPUB and PDF reader with customizable serif & Persian typography, six reading themes including Black & White Night mode, paper texture, bookmarks, highlights, and local-first library.",
+  "name": "ATLAS",
+  "description": "ATLAS — Calm, local-first native Android EPUB, PDF, CBZ, Markdown, and Audiobook reader with Reading Insights, customizable typography, six reading themes, bilingual English & Persian support, and offline Writer Studio.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

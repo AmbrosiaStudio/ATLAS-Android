@@ -20,7 +20,6 @@ import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -60,6 +59,7 @@ private data class WidgetBookData(
   val todayMinutes: Int,
   val dailyGoalMinutes: Int,
   val isPersian: Boolean,
+  val isDark: Boolean,
 )
 
 class PageNestContinueWidget : GlanceAppWidget() {
@@ -91,6 +91,7 @@ class PageNestContinueWidget : GlanceAppWidget() {
           todayMinutes = todayMins,
           dailyGoalMinutes = settings.dailyGoalMinutes,
           isPersian = settings.appLanguage == AppLanguage.PERSIAN,
+          isDark = settings.themeMode.isDark,
         )
       }
 
@@ -145,37 +146,47 @@ private fun ContinueReadingWidgetContent(
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
 
-  val bgColor = ColorProvider(Color(0xFFFAF7F2))
-  val cardSurface = ColorProvider(Color(0xFFFFFFFF))
-  val inkColor = ColorProvider(Color(0xFF1E1C18))
-  val mutedColor = ColorProvider(Color(0xFF6B655B))
-  val accentColor = ColorProvider(Color(0xFF2D6A4F))
-  val accentTint = ColorProvider(Color(0xFFD8EBE0))
+  val bgColor = ColorProvider(if (data.isDark) Color(0xFF111111) else Color(0xFFF5F5F2))
+  val mutedSurface = ColorProvider(if (data.isDark) Color(0xFF242424) else Color(red = 0xEE, green = 0xEE, blue = 0xEB))
+  val trackColor = ColorProvider(if (data.isDark) Color(0xFF303030) else Color(0xFFE6E6E2))
+  val inkColor = ColorProvider(if (data.isDark) Color(0xFFF5F5F2) else Color(0xFF111111))
+  val secondaryColor = ColorProvider(if (data.isDark) Color(0xFF999999) else Color(0xFF777777))
+  val coverFallbackBg = ColorProvider(if (data.isDark) Color(0xFF1B1B1B) else Color(0xFF111111))
+  val onCoverInk = ColorProvider(Color(0xFFF5F5F2))
+  val symbolRes = if (data.isDark) R.drawable.ic_atlas_symbol_widget_dark else R.drawable.ic_atlas_symbol_widget
 
   Box(
     modifier =
       GlanceModifier
         .fillMaxSize()
         .background(bgColor)
-        .cornerRadius(20.dp)
+        .cornerRadius(14.dp)
         .clickable(actionStartActivity(launchIntent))
-        .padding(12.dp),
+        .padding(14.dp),
   ) {
     if (book == null) {
       Column(
         modifier = GlanceModifier.fillMaxSize().padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        Text(
-          text = if (data.isPersian) "پیج‌نست" else "PageNest",
-          style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = accentColor),
-        )
-        Spacer(modifier = GlanceModifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Image(
+            provider = ImageProvider(symbolRes),
+            contentDescription = "ATLAS",
+            modifier = GlanceModifier.size(16.dp),
+          )
+          Spacer(modifier = GlanceModifier.width(6.dp))
+          Text(
+            text = if (data.isPersian) "اطلس" else "ATLAS",
+            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = inkColor),
+          )
+        }
+        Spacer(modifier = GlanceModifier.height(6.dp))
         Text(
           text =
-            if (data.isPersian) "کتابی برای ادامه مطالعه اضافه کنید"
-            else "Tap to import a book and start reading",
-          style = TextStyle(fontSize = 12.sp, color = mutedColor),
+            if (data.isPersian) "سندی برای ادامه مطالعه اضافه کنید"
+            else "Tap to import a document and start reading",
+          style = TextStyle(fontSize = 11.sp, color = secondaryColor),
           maxLines = 2,
         )
       }
@@ -193,27 +204,34 @@ private fun ContinueReadingWidgetContent(
               GlanceModifier
                 .width(56.dp)
                 .fillMaxHeight()
-                .cornerRadius(10.dp),
+                .cornerRadius(4.dp),
           )
         } else {
-          Box(
+          Column(
             modifier =
               GlanceModifier
                 .width(56.dp)
                 .fillMaxHeight()
-                .background(accentColor)
-                .cornerRadius(10.dp),
-            contentAlignment = Alignment.Center,
+                .background(coverFallbackBg)
+                .cornerRadius(4.dp)
+                .padding(7.dp),
+            verticalAlignment = Alignment.Top,
           ) {
             Image(
-              provider = ImageProvider(R.mipmap.ic_launcher),
+              provider = ImageProvider(R.drawable.ic_atlas_symbol_widget_dark),
               contentDescription = book.title,
-              modifier = GlanceModifier.size(30.dp),
+              modifier = GlanceModifier.size(16.dp),
+            )
+            Spacer(modifier = GlanceModifier.defaultWeight())
+            Text(
+              text = book.title.take(12),
+              style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Medium, color = onCoverInk),
+              maxLines = 2,
             )
           }
         }
 
-        Spacer(modifier = GlanceModifier.width(12.dp))
+        Spacer(modifier = GlanceModifier.width(14.dp))
 
         Column(
           modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
@@ -226,26 +244,26 @@ private fun ContinueReadingWidgetContent(
             Box(
               modifier =
                 GlanceModifier
-                  .background(accentTint)
-                  .cornerRadius(6.dp)
+                  .background(mutedSurface)
+                  .cornerRadius(4.dp)
                   .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
               Text(
                 text = book.bookFormat().name,
-                style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = accentColor),
+                style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = inkColor),
               )
             }
-            Spacer(modifier = GlanceModifier.width(6.dp))
+            Spacer(modifier = GlanceModifier.width(8.dp))
             Text(
               text =
                 if (data.isPersian) "امروز ${data.todayMinutes}/${data.dailyGoalMinutes} د"
                 else "Today ${data.todayMinutes}/${data.dailyGoalMinutes}m",
-              style = TextStyle(fontSize = 10.sp, color = mutedColor),
+              style = TextStyle(fontSize = 10.sp, color = secondaryColor),
               maxLines = 1,
             )
           }
 
-          Spacer(modifier = GlanceModifier.height(4.dp))
+          Spacer(modifier = GlanceModifier.height(6.dp))
 
           Text(
             text = book.title,
@@ -254,11 +272,11 @@ private fun ContinueReadingWidgetContent(
           )
           Text(
             text = book.author,
-            style = TextStyle(fontSize = 11.sp, color = mutedColor),
+            style = TextStyle(fontSize = 11.sp, color = secondaryColor),
             maxLines = 1,
           )
 
-          Spacer(modifier = GlanceModifier.height(8.dp))
+          Spacer(modifier = GlanceModifier.height(10.dp))
 
           Row(
             modifier = GlanceModifier.fillMaxWidth(),
@@ -266,14 +284,14 @@ private fun ContinueReadingWidgetContent(
           ) {
             LinearProgressIndicator(
               progress = (book.progressPercent / 100f).coerceIn(0f, 1f),
-              color = accentColor,
-              backgroundColor = cardSurface,
-              modifier = GlanceModifier.defaultWeight().height(6.dp).cornerRadius(4.dp),
+              color = inkColor,
+              backgroundColor = trackColor,
+              modifier = GlanceModifier.defaultWeight().height(3.dp).cornerRadius(2.dp),
             )
             Spacer(modifier = GlanceModifier.width(8.dp))
             Text(
               text = "${book.progressPercent.roundToInt()}%",
-              style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = accentColor),
+              style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = inkColor),
             )
           }
         }

@@ -499,7 +499,7 @@ class ReaderViewModel(
         val chapterTitle =
           (doc as? ReaderDocumentState.EpubReady)?.book?.chapters?.getOrNull(pos.chapterOrPage)?.title
             ?: "Section ${pos.chapterOrPage + 1}"
-        Triple(listen.isPlaying, chapterTitle, uiState.value.book?.title ?: "PageNest")
+        Triple(listen.isPlaying, chapterTitle, uiState.value.book?.title ?: "ATLAS")
       }.collect { (playing, chTitle, bookTitle) ->
         if (playing || TtsMediaBridge.serviceRunning) {
           TtsMediaBridge.syncState(
@@ -1051,6 +1051,7 @@ class ReaderViewModel(
         colorHex = colorHex,
         note = note.trim(),
       )
+      com.example.widget.WidgetUpdater.requestAllUpdates(appContext)
       clearSelection()
       showToast(if (note.isNotBlank()) "Highlight & note saved" else "Passage highlighted")
     }
@@ -1098,6 +1099,7 @@ class ReaderViewModel(
         colorHex = colorHex,
         note = current.outcome.translatedText,
       )
+      com.example.widget.WidgetUpdater.requestAllUpdates(appContext)
       translationState.value = TranslationUiState.Idle
       clearSelection()
       showToast("Translation saved as note")
@@ -1165,7 +1167,10 @@ class ReaderViewModel(
   }
 
   fun deleteHighlight(id: Long) {
-    viewModelScope.launch { readerRepository.deleteHighlight(id) }
+    viewModelScope.launch {
+      readerRepository.deleteHighlight(id)
+      com.example.widget.WidgetUpdater.requestAllUpdates(appContext)
+    }
   }
 
   fun runSearch(query: String) {

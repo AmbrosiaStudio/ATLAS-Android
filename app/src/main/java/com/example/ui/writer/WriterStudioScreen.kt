@@ -837,7 +837,7 @@ internal fun StudioCoverPreviewThumbnail(
           modifier = Modifier.width(18.dp).height(2.dp).background(accentColor, CircleShape)
         )
         Text(
-          text = title.ifBlank { "PageNest" },
+          text = title.ifBlank { "ATLAS" },
           fontFamily = LiterataFontFamily,
           fontSize = 10.sp,
           lineHeight = 12.sp,

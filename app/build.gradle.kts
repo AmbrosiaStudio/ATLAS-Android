@@ -13,11 +13,11 @@ android {
   compileSdk = 36
 
   defaultConfig {
-    applicationId = "ir.pagenest.mrambrosia"
+    applicationId = "atlas.mrmabrosia.ir"
     minSdk = 24
     targetSdk = 36
-    versionCode = 6
-    versionName = "6.0"
+    versionCode = 10
+    versionName = "3.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
