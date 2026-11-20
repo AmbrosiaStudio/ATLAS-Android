@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "PageNest"
+rootProject.name = "ATLAS"
 
 include(":app")
